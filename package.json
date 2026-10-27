@@ -1,0 +1,8 @@
+{
+  "name": "plenty-of-fish-in-the-sea",
+  "private": true,
+  "description": "A satirical dating game. index.html is the whole game; api/notes.js runs the shared note board.",
+  "dependencies": {
+    "pg": "8.11.3"
+  }
+}
