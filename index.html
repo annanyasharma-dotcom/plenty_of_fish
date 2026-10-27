@@ -14,6 +14,8 @@ body { font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 </style>
+<!-- Vercel Web Analytics: enable it in the project's Analytics tab -->
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <title>Plenty of Fish in the Sea</title>
@@ -2138,6 +2140,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     Sound.click();
     $('aboutBack').focus({ preventScroll: true });
     Notes.start();
+    Notes.refresh();
     watchWiggles();
     fitHi();
   }
@@ -2251,7 +2254,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
         mode = 'api'; uid = 'this-device'; readOnly = false; owner = Boolean(adminKey);
         applyApi(j.notes);
         status(''); syncForm();
-        setInterval(refreshApi, 20000);
+        setInterval(refreshApi, 10000);
         return true;
       } catch (e) { return false; }
     }
@@ -2428,7 +2431,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
     text.addEventListener('input', syncForm);
     render();
-    return { start };
+    return { start, refresh: () => { if (mode === 'api') refreshApi(); } };
   })();
 
   /* ================= Effects ================= */
