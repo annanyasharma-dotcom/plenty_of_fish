@@ -1,0 +1,2623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A satirical dating game: cast your line, reel in a red flag, and log every questionable catch.">
+<meta property="og:title" content="Plenty of Fish in the Sea">
+<meta property="og:description" content="A satirical dating game about the red flags we keep reeling in.">
+<meta name="theme-color" content="#EFE6D6">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); color-scheme: light; }
+html, body { margin: 0; }
+body { font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<title>Plenty of Fish in the Sea</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=Indie+Flower&display=swap">
+<style>
+/* Layout: one full-bleed stage. The ocean strip rises to become the game; UI floats on layers above it. */
+:root {
+  --cream: #EFE6D6;
+  --cream-ink: #F4ECDF;
+  --cream-dot: #DCD1BD;
+  --cobalt: #2C2FC6;
+  --cobalt-deep: #14167A;
+  --panel: #4B50D6;
+  --panel-shadow: #1C1E6E;
+  --wave: #5458DB;
+  --orange: #C4532A;
+  --orange-hot: #E0613A;
+  --lavender: #A9ACF8;
+
+  --font-display: "Antonio", "Arial Narrow", "Roboto Condensed", "Helvetica Neue Condensed", Impact, sans-serif;
+  --font-hand: "Indie Flower", "Comic Sans MS", "Chalkboard SE", cursive;
+  --font-read: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --note-cream: #F7EFDF; --note-lilac: #CFD0FD; --note-coral: #F5AE8E; --note-mint: #C3E4D8;
+
+  --s: 1;
+  --surface-game: 160px;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  color-scheme: light;
+}
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--cream);
+  color: var(--cobalt);
+  font-family: var(--font-display);
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Stage & layers ---------- */
+.stage {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  overflow: clip;
+  background: var(--cream);
+  isolation: isolate;
+}
+[hidden] { display: none !important; }
+.sky {
+  position: absolute; inset: 0; z-index: 0;
+  background-image: radial-gradient(var(--cream-dot) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  opacity: 0;
+  transition: opacity .9s ease;
+}
+[data-view="game"] .sky { opacity: 1; }
+
+.clouds { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: opacity .7s ease, transform .9s var(--ease-out); }
+[data-view="game"] .clouds { opacity: 0; transform: translateY(-40px); }
+.cloud { position: absolute; display: block; }
+.cloud.a { left: -5vw; top: 1vh; width: clamp(180px, 24vw, 640px); }
+.cloud.b { right: 12vw; top: 4vh; width: clamp(90px, 9.5vw, 260px); }
+.cloud.c { right: -3vw; top: 46vh; width: clamp(170px, 22vw, 600px); }
+
+.layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.boat-layer { z-index: 2; }
+.ocean { position: absolute; left: 0; top: 0; z-index: 3; width: 100%; will-change: transform; cursor: default; }
+[data-state="ready"] .ocean, [data-state="bite"] .ocean { cursor: pointer; }
+.ocean svg { display: block; }
+.rig-layer { z-index: 4; }
+
+/* gentle horizontal water drift */
+.drift path { transform-box: fill-box; animation: drift 9s ease-in-out infinite alternate; }
+.drift path:nth-child(even) { animation-duration: 11s; animation-direction: alternate-reverse; }
+@keyframes drift { from { transform: translateX(-10px); } to { transform: translateX(12px); } }
+
+
+.mote { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: var(--cream-ink); opacity: .22; animation: mote 14s ease-in-out infinite alternate; }
+@keyframes mote { to { transform: translate(18px, -26px); } }
+
+/* ---------- Landing ---------- */
+.landing {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(36px, 10vh, 150px);
+  padding-block: 4vh 15vh;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  text-align: center;
+  transition: opacity .45s ease, transform .6s var(--ease-out), visibility 0s linear 0s;
+}
+[data-view="game"] .landing { opacity: 0; transform: translateY(-28px); pointer-events: none; visibility: hidden; transition: opacity .45s ease, transform .6s var(--ease-out), visibility 0s linear .6s; }
+
+.title { margin: 0; font-weight: 500; line-height: .9; font-size: clamp(3.1rem, 8.4vw, 10rem); letter-spacing: -.005em; color: var(--cobalt); display: flex; flex-direction: column; align-items: flex-start; }
+.title .t2 { display: flex; align-items: flex-end; gap: .12em; }
+.sea-word { height: 1.32em; width: auto; margin-bottom: -.2em; margin-top: -.35em; overflow: visible; }
+.sea-word path { fill: none; stroke: var(--cobalt); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; }
+
+.entry { display: flex; flex-direction: column; align-items: center; gap: clamp(16px, 4vh, 48px); }
+.cta {
+  display: inline-flex; align-items: center; gap: .35em;
+  border: 0; border-radius: 8px;
+  padding: .06em .3em .04em .3em;
+  background: var(--cobalt); color: #fff;
+  font-family: var(--font-display); font-weight: 500; font-size: clamp(1.7rem, 4.6vw, 5.6rem); line-height: 1.12; letter-spacing: -.005em;
+  white-space: nowrap; max-width: 100%;
+  box-shadow: 0 .14em 0 var(--cobalt-deep);
+  transition: transform .14s ease, box-shadow .14s ease, background-color .2s ease;
+}
+.cta svg { width: .78em; height: .78em; flex: none; }
+.cta:hover { transform: translateY(-2px); box-shadow: 0 calc(.14em + 2px) 0 var(--cobalt-deep); background: #3236D4; }
+.cta:active, .cta.is-pressed { transform: translateY(.1em); box-shadow: 0 .04em 0 var(--cobalt-deep); }
+.cta:focus-visible, .linkish:focus-visible, .btn:focus-visible, .back:focus-visible, .latest-name:focus-visible, .reset:focus-visible {
+  outline: 3px solid var(--orange); outline-offset: 5px;
+}
+.linkish {
+  border: 0; background: none; padding: 0 0 .04em;
+  font-family: var(--font-display); font-weight: 500; font-size: clamp(1.6rem, 3.3vw, 4rem); line-height: 1;
+  color: var(--cobalt);
+  border-bottom: max(2px, .06em) solid var(--cobalt);
+  transition: color .15s ease, border-color .15s ease, transform .12s ease;
+}
+.linkish:hover { color: var(--orange); border-color: var(--orange); }
+.linkish:active { transform: translateY(2px); }
+
+/* ---------- Shared buttons ---------- */
+.back {
+  display: inline-flex; align-items: center; gap: .3em;
+  border: 0; border-radius: 6px;
+  padding: .08em .32em .06em .26em;
+  background: var(--cobalt); color: #fff;
+  font-family: var(--font-display); font-weight: 500; font-size: clamp(1.5rem, 2.6vw, 2.9rem); line-height: 1.1;
+  box-shadow: 0 .12em 0 var(--cobalt-deep);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.back svg { width: .72em; height: .72em; }
+.back:hover { transform: translateY(-2px); box-shadow: 0 calc(.12em + 2px) 0 var(--cobalt-deep); }
+.back:active { transform: translateY(.08em); box-shadow: 0 .03em 0 var(--cobalt-deep); }
+
+.btn {
+  border: 0; border-radius: 6px;
+  padding: .32em .7em .26em;
+  font-family: var(--font-display); font-weight: 600; font-size: clamp(1.15rem, 1.7vw, 1.5rem); letter-spacing: .02em; line-height: 1.1;
+  transition: transform .12s ease, box-shadow .12s ease, background-color .15s ease;
+}
+.btn-cream { background: var(--cream-ink); color: var(--cobalt); box-shadow: 0 5px 0 var(--panel-shadow); }
+.btn-cream:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--panel-shadow); }
+.btn-cream:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--panel-shadow); }
+.btn-ghost { background: transparent; color: var(--cream-ink); box-shadow: inset 0 0 0 2.5px var(--cream-ink); }
+.btn-ghost:hover { background: rgba(244, 236, 223, .12); }
+.btn-ghost:active { transform: translateY(2px); }
+
+/* ---------- HUD ---------- */
+.hud { position: absolute; inset: 0; z-index: 7; pointer-events: none; opacity: 0; transition: opacity .4s ease; }
+[data-view="game"] .hud { opacity: 1; transition: opacity .5s ease .7s; }
+[data-view="game"] .hud > * { pointer-events: auto; }
+.hud .back { position: absolute; top: calc(clamp(14px, 2.2vh, 40px) + env(safe-area-inset-top, 0px)); left: max(clamp(16px, 1.8vw, 48px), env(safe-area-inset-left, 0px)); }
+
+.hud-panels {
+  position: absolute;
+  top: calc(var(--surface-game) + 4.5vh);
+  right: max(calc(16px + 1.8vw), env(safe-area-inset-right, 0px));
+  width: clamp(240px, 20vw, 420px);
+  display: flex; flex-direction: column; gap: clamp(20px, 3.4vh, 40px);
+  transition: opacity .3s ease, transform .4s var(--ease-out);
+}
+[data-state="caught"] .hud-panels, [data-state="inspecting"] .hud-panels { opacity: 0; transform: translateX(24px); pointer-events: none; }
+.panel {
+  background: var(--panel); color: var(--cream-ink);
+  border-radius: 4px;
+  box-shadow: 12px 12px 0 var(--panel-shadow);
+  padding: .9em 1.1em 1em;
+}
+.panel h3 { margin: 0; font-weight: 600; font-size: clamp(1.7rem, 3vw, 3.5rem); line-height: 1; letter-spacing: -.005em; text-wrap: balance; }
+.squiggle { height: 6px; margin: .55em 0 .4em; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='6'%3E%3Cpath d='M0 3 Q6 .6 12 3 T24 3 T36 3 T48 3' fill='none' stroke='%23A9ACF8' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x left center; }
+.big-num { display: block; text-align: center; font-weight: 600; font-size: clamp(4.4rem, 10vw, 11rem); line-height: .95; font-variant-numeric: tabular-nums; }
+.big-num.bump { animation: bump .5s var(--ease-out); }
+@keyframes bump { 30% { transform: scale(1.18) rotate(-3deg); } }
+.hand { font-family: var(--font-hand); }
+.panel .hand-sub { margin: .3em 0 0; text-align: center; font-size: clamp(1.1rem, 1.7vw, 1.9rem); }
+.latest-row { display: flex; align-items: center; gap: .8em; min-width: 0; }
+.latest-row svg { width: clamp(64px, 6vw, 110px); flex: none; }
+.latest-row > div { min-width: 0; }
+.latest-name { display: inline-flex; align-items: center; gap: .3em; border: 0; background: none; padding: 0; color: var(--cream-ink); font-family: var(--font-display); font-weight: 500; font-size: clamp(1.2rem, 1.8vw, 2rem); line-height: 1.1; text-align: left; border-radius: 3px; }
+.latest-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.latest-name svg { width: .8em; height: .8em; flex: none; }
+.latest-name[disabled] { cursor: default; text-decoration: none; }
+.latest-meta { margin: .15em 0 0; font-size: clamp(.95rem, 1.2vw, 1.25rem); }
+
+/* ---------- Prompt (caption + action) ---------- */
+.prompt {
+  position: absolute; z-index: 6; left: 50%;
+  bottom: calc(clamp(24px, 6vh, 72px) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(480px, calc(100% - 32px));
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  text-align: center; pointer-events: none;
+  opacity: 0; transition: opacity .35s ease;
+}
+[data-state="ready"] .prompt, [data-state="waiting"] .prompt, [data-state="bite"] .prompt,
+[data-state="reeling"] .prompt, [data-state="returning"] .prompt, [data-state="rejecting"] .prompt { opacity: 1; }
+.caption { margin: 0; min-height: 1.3em; color: var(--cream-ink); font-family: var(--font-hand); font-size: clamp(1.3rem, 2.1vw, 2.3rem); line-height: 1.25; text-wrap: balance; }
+.caption.fresh { animation: caption-in .4s var(--ease-out); }
+@keyframes caption-in { from { opacity: 0; transform: translateY(6px); } }
+.reel-btn {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; gap: .4em;
+  border: 0; border-radius: 6px;
+  padding: .22em .7em .18em;
+  background: var(--cream-ink); color: var(--cobalt);
+  font-family: var(--font-display); font-weight: 600; font-size: clamp(1.35rem, 2.2vw, 2.3rem); line-height: 1.1; letter-spacing: .02em;
+  box-shadow: 0 6px 0 var(--cobalt-deep);
+  transition: transform .12s ease, box-shadow .12s ease, background-color .15s ease;
+}
+.reel-btn svg { width: .8em; height: .8em; flex: none; }
+.reel-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 var(--cobalt-deep); }
+.reel-btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+.reel-btn:focus-visible { outline: 3px solid var(--cream-ink); outline-offset: 5px; }
+.reel-btn.is-urgent { background: var(--orange-hot); color: #fff; animation: jiggle .9s ease-in-out infinite; }
+.reel-btn.is-urgent:active { animation: none; }
+.reel-btn.pop, .throw-btn.pop { animation: pop-in .35s var(--ease-out); }
+.prompt-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px; }
+.throw-btn {
+  pointer-events: auto;
+  border: 0; border-radius: 6px;
+  padding: .22em .7em .18em;
+  background: transparent; color: var(--cream-ink);
+  box-shadow: inset 0 0 0 2.5px var(--cream-ink);
+  font-family: var(--font-display); font-weight: 600; font-size: clamp(1.15rem, 1.8vw, 1.9rem); line-height: 1.1; letter-spacing: .02em;
+  transition: transform .12s ease, background-color .15s ease;
+}
+.throw-btn:hover { background: rgba(244, 236, 223, .14); transform: translateY(-2px); }
+.throw-btn:active { transform: translateY(2px); }
+.throw-btn:focus-visible { outline: 3px solid var(--cream-ink); outline-offset: 5px; }
+.controls-hint { margin: 0; color: var(--lavender); font-family: var(--font-hand); font-size: clamp(.95rem, 1.25vw, 1.3rem); line-height: 1.3; }
+.controls-hint kbd { font-family: var(--font-display); font-weight: 600; font-size: .9em; padding: 0 .3em; border-radius: 3px; box-shadow: inset 0 0 0 1.5px var(--lavender); }
+.reel-btn.is-urgent.pop { animation: pop-in .35s var(--ease-out), jiggle .9s ease-in-out .35s infinite; }
+@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(.92); } }
+@keyframes jiggle { 0%, 60%, 100% { transform: rotate(0); } 10% { transform: rotate(-3deg) translateY(-2px); } 25% { transform: rotate(3deg); } 40% { transform: rotate(-2deg); } }
+
+/* ---------- Persona card ---------- */
+.card {
+  position: absolute; z-index: 8;
+  top: 50%;
+  right: max(calc(16px + 1.8vw), env(safe-area-inset-right, 0px));
+  width: clamp(320px, 31vw, 440px);
+  margin-top: 36px;
+  max-height: calc(100% - 120px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--panel); color: var(--cream-ink);
+  border-radius: 5px;
+  box-shadow: 12px 12px 0 var(--panel-shadow);
+  padding: 0;
+  transform: translateY(-50%) rotate(-1deg);
+  animation: card-in .5s var(--ease-out);
+}
+@keyframes card-in { from { opacity: 0; transform: translateY(-44%) rotate(2.5deg); } }
+.card-top { position: relative; display: flex; justify-content: center; }
+.card-fish { width: 62%; max-width: 230px; height: auto; display: block; overflow: visible; animation: hover-fish 3s ease-in-out infinite; }
+@keyframes hover-fish { 50% { transform: translateY(-5px) rotate(-2deg); } }
+.stamp {
+  position: absolute; right: 0; top: 6px;
+  display: grid; place-items: center;
+  width: 4.4em; height: 4.4em; border-radius: 50%;
+  background: var(--orange-hot); color: #fff;
+  font-family: var(--font-hand); font-size: clamp(.95rem, 1.2vw, 1.15rem); line-height: 1; text-align: center;
+  transform: rotate(12deg);
+  box-shadow: 3px 3px 0 var(--panel-shadow);
+}
+.eyebrow { margin: 10px 0 2px; font-size: clamp(.95rem, 1.15vw, 1.1rem); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--lavender); }
+.card-name { margin: 0; font-weight: 700; font-size: clamp(2.2rem, 3.4vw, 3.4rem); line-height: .95; letter-spacing: -.005em; text-wrap: balance; }
+.card-blurb { margin: 12px 0 0; font-family: var(--font-hand); font-size: clamp(1.15rem, 1.5vw, 1.4rem); line-height: 1.3; }
+.flag { margin-top: 16px; background: var(--cobalt); padding: 10px 14px 12px; border-radius: 3px; transform: rotate(.6deg); }
+.flag-label { margin: 0; display: flex; align-items: center; gap: .4em; font-weight: 600; font-size: 1rem; letter-spacing: .12em; color: var(--orange-hot); }
+.flag-label svg { width: 1.1em; height: 1.1em; }
+.flag p:last-child { margin: 4px 0 0; font-family: var(--font-display); font-weight: 500; font-size: clamp(1.25rem, 1.6vw, 1.5rem); line-height: 1.15; }
+.card-says { margin: 14px 0 0; font-size: 1.15rem; font-weight: 500; line-height: 1.25; }
+.card-says span { display: block; font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; color: var(--lavender); }
+.card-commentary { margin: 12px 0 0; font-family: var(--font-hand); font-size: 1.1rem; color: var(--lavender); }
+.card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 24px 18px; }
+/* pinned action bar: never scrolls away */
+.card-actions {
+  flex: none;
+  display: flex; flex-wrap: wrap; gap: 12px;
+  padding: 14px 24px 18px;
+  background: var(--panel);
+  border-top: 2px dashed rgba(169, 172, 248, .55);
+}
+.card-actions .btn { flex: 1 1 auto; }
+
+/* ---------- Fish Log ---------- */
+.log {
+  position: absolute; inset: 0; z-index: 9;
+  overflow-y: auto; overflow-x: hidden;
+  background-color: var(--cream);
+  background-image: radial-gradient(var(--cream-dot) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  padding-block: calc(clamp(14px, 2.2vh, 40px) + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(clamp(16px, 1.8vw, 48px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(16px, 1.8vw, 48px), env(safe-area-inset-right, 0px));
+  animation: log-in .35s var(--ease-out);
+}
+@keyframes log-in { from { opacity: 0; transform: translateY(16px); } }
+.log-head { max-width: 1200px; margin: 0 auto; }
+.log-title { margin: clamp(18px, 4vh, 48px) 0 0; font-weight: 600; font-size: clamp(3.4rem, 9vw, 8rem); line-height: .9; }
+.log-stats { margin: .35em 0 0; font-family: var(--font-hand); font-size: clamp(1.2rem, 1.8vw, 1.8rem); }
+.log-grid {
+  max-width: 1200px; margin: clamp(24px, 4vh, 48px) auto 0;
+  list-style: none; padding: 0 12px 0 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 28px;
+}
+.log-card {
+  min-width: 0;
+  background: var(--panel); color: var(--cream-ink);
+  border-radius: 4px; box-shadow: 10px 10px 0 var(--panel-shadow);
+  padding: 16px 20px 20px;
+  display: flex; flex-direction: column;
+  scroll-margin: 40px;
+}
+.log-card svg { width: 64%; max-width: 200px; height: auto; align-self: center; overflow: visible; }
+.log-card .meta { margin: 8px 0 0; font-size: .95rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--lavender); }
+.log-card h3 { margin: 2px 0 0; font-weight: 700; font-size: 2rem; line-height: 1; }
+.log-card .count { margin: 6px 0 0; font-family: var(--font-hand); font-size: 1.15rem; }
+.log-card .lf { margin: 12px 0 0; font-weight: 500; font-size: 1.2rem; line-height: 1.2; }
+.log-card .lf b { display: block; font-weight: 600; font-size: .85rem; letter-spacing: .12em; color: var(--orange-hot); }
+.log-card .lc { margin: 10px 0 0; font-family: var(--font-hand); font-size: 1.1rem; color: var(--lavender); }
+.log-card.locked { background: transparent; color: var(--cobalt); box-shadow: none; border: 2.5px dashed var(--cobalt); }
+.log-card.locked svg { opacity: .3; }
+.log-card.locked .meta { color: var(--cobalt); opacity: .75; }
+.log-card.locked .hint { margin: 10px 0 0; font-family: var(--font-hand); font-size: 1.2rem; }
+.log-card.is-highlight { outline: 4px solid var(--orange-hot); outline-offset: 6px; animation: highlight .7s var(--ease-out); }
+@keyframes highlight { 40% { transform: rotate(-1.5deg) scale(1.02); } }
+.log-foot { max-width: 1200px; margin: 36px auto 0; display: flex; justify-content: flex-end; }
+.reset { border: 0; background: none; padding: 4px 2px; font-family: var(--font-hand); font-size: 1.15rem; color: var(--cobalt); text-decoration: underline; text-underline-offset: 3px; border-radius: 3px; }
+.reset:hover { color: var(--orange); }
+.reset.is-armed { color: var(--orange); font-weight: 700; }
+
+/* ---------- The Clingy Ex (easter egg) ---------- */
+[data-ex] .drift path, [data-ex] .mote { animation-play-state: paused; }
+[data-state="clingy"] .hud > * { pointer-events: none; }
+[data-state="clingy"] .hud .back, [data-state="clingy"] .hud-panels { opacity: 0; transition: opacity .5s ease; }
+.ex-caption {
+  position: absolute; z-index: 8; left: 50%;
+  top: calc(var(--surface-game) + clamp(28px, 7vh, 80px));
+  width: max-content; max-width: min(560px, calc(100% - 32px));
+  padding: .32em .7em .3em;
+  background: var(--panel); color: var(--cream-ink);
+  border-radius: 4px; box-shadow: 9px 9px 0 var(--panel-shadow);
+  font-family: var(--font-display); font-weight: 600; font-size: clamp(1.5rem, 3.2vw, 2.9rem); line-height: 1.02; letter-spacing: .005em;
+  text-align: center; text-wrap: balance;
+  transform: translateX(-50%) rotate(-1.2deg);
+  animation: ex-cap-in .45s var(--ease-out);
+}
+.ex-caption.out { animation: ex-cap-out .4s ease-in forwards; }
+@keyframes ex-cap-in { from { opacity: 0; transform: translate(-50%, 16px) rotate(-1.2deg); } }
+@keyframes ex-cap-out { to { opacity: 0; transform: translate(-50%, -10px) rotate(-1.2deg); } }
+.ex-end {
+  position: absolute; z-index: 8; left: 50%; top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100% - 32px));
+  display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center;
+}
+.uup { position: absolute; z-index: 8; left: 0; top: 0; margin: 0; pointer-events: none; }
+.uup > span {
+  position: relative; display: inline-block;
+  padding: .28em .75em .36em;
+  background: var(--cream-ink); color: var(--cobalt);
+  border: 2px solid var(--cobalt-deep);
+  border-radius: 48% 52% 46% 54% / 58% 50% 52% 44%;
+  font-family: var(--font-hand); font-size: clamp(1.05rem, 1.5vw, 1.3rem); line-height: 1; white-space: nowrap;
+  transform-origin: 0 100%;
+  animation: uup-pop .5s cubic-bezier(.34, 1.7, .5, 1) both, uup-bob 2.4s ease-in-out .5s infinite;
+}
+.uup > span::after {
+  content: ""; position: absolute; left: -9px; bottom: 4px;
+  width: 12px; height: 10px; background: var(--cream-ink);
+  border-left: 2px solid var(--cobalt-deep); border-bottom: 2px solid var(--cobalt-deep);
+  border-bottom-left-radius: 3px;
+  transform: skewX(-24deg) rotate(-8deg);
+}
+@keyframes uup-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } }
+@keyframes uup-bob { 50% { transform: translateY(-5px) rotate(-1.5deg); } }
+.ex-recovery { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: ex-cap-fade .6s ease both; }
+@keyframes ex-cap-fade { from { opacity: 0; transform: translateY(8px); } }
+.ex-awk { margin: 0; color: var(--cream-ink); font-family: var(--font-display); font-weight: 600; font-size: clamp(2rem, 4.4vw, 3.6rem); line-height: 1; }
+.ex-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+
+/* ---------- About ---------- */
+.entry-links { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: clamp(24px, 3.4vw, 64px); }
+.about {
+  position: absolute; inset: 0; z-index: 9;
+  overflow-y: auto; overflow-x: hidden;
+  background-color: var(--cream);
+  background-image: radial-gradient(var(--cream-dot) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  color: var(--cobalt);
+  animation: log-in .35s var(--ease-out);
+}
+.about a { color: inherit; }
+.about-top {
+  padding-block: calc(clamp(14px, 2.2vh, 40px) + env(safe-area-inset-top, 0px)) 0;
+  padding-left: max(clamp(16px, 1.8vw, 48px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(16px, 1.8vw, 48px), env(safe-area-inset-right, 0px));
+}
+.about-wrap {
+  max-width: 1160px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.about-hero { padding-block: clamp(24px, 5vh, 56px) clamp(32px, 6vh, 64px); display: flex; flex-direction: column; align-items: flex-start; gap: clamp(18px, 3vh, 28px); }
+.hi-title { margin: 0; font-weight: 600; font-size: clamp(3rem, 8.4vw, 8.4rem); line-height: .95; letter-spacing: -.005em; text-wrap: balance; }
+.hi-title.one-line { white-space: nowrap; text-wrap: nowrap; }
+.hi-title .waves { font-family: var(--font-hand); font-weight: 400; font-size: .5em; letter-spacing: 0; color: var(--orange); white-space: nowrap; display: inline-block; transform: rotate(-4deg) translateY(-.15em); }
+.story-wrap { max-width: 62rem; }
+.nowrap { white-space: nowrap; }
+.about-kicker { margin: 0; font-family: var(--font-hand); font-size: clamp(1.3rem, 2vw, 1.8rem); }
+.about-title { margin: .1em 0 clamp(24px, 4vh, 40px); font-weight: 500; font-size: clamp(2.2rem, 4.6vw, 4.2rem); line-height: .92; text-wrap: balance; }
+.about-title .sea-word { height: 1.25em; margin: -.3em 0 -.18em .08em; vertical-align: -.05em; }
+.about-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.pill {
+  display: inline-flex; align-items: center; gap: .35em;
+  padding: .28em .7em .22em; border-radius: 6px;
+  background: var(--cobalt); color: #fff !important; text-decoration: none;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; letter-spacing: .03em; line-height: 1.1;
+  box-shadow: 0 5px 0 var(--cobalt-deep);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.pill:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--cobalt-deep); }
+.pill:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+.pill:focus-visible, .about a:focus-visible { outline: 3px solid var(--orange); outline-offset: 4px; }
+@property --reveal { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+/* wiggly underline that draws itself once the passage scrolls into view; a cream cover slides off the wave */
+.wiggle {
+  padding-bottom: .3em;
+  background:
+    linear-gradient(var(--cream), var(--cream)) right bottom / calc(100% - var(--reveal)) .42em no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8'%3E%3Cpath d='M0 4 Q5 0 10 4 T20 4' fill='none' stroke='%23C4532A' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") left bottom / 20px .42em repeat-x;
+  transition: --reveal 1.8s cubic-bezier(.45, 0, .2, 1);
+}
+.wiggle.is-drawn { --reveal: 100%; }
+.story { max-width: 62ch; font-family: var(--font-read); font-size: 1.15rem; line-height: 1.6; color: var(--cobalt); }
+.story p, .story blockquote { margin: 0 0 1.1em; font-size: 1em; line-height: 1.6; }
+.pull { padding: .1em 0 .1em .9em; border-left: 4px solid var(--orange); font-weight: 700; }
+.bait { font-weight: 700; color: var(--orange); }
+
+.notes-sea { position: relative; margin-top: clamp(48px, 9vh, 110px); background: var(--cobalt); color: var(--cream-ink); }
+.notes-sea > svg.edge { position: absolute; left: 0; top: -10px; width: 100%; height: 12px; display: block; }
+.notes-inner { max-width: 1160px; margin: 0 auto; padding-block: clamp(36px, 7vh, 72px) calc(64px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.notes-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; }
+.notes-title { margin: 0; font-weight: 600; font-size: clamp(2.6rem, 5vw, 4.6rem); line-height: .95; }
+.notes-status { margin: 14px 0 0; min-height: 1.4em; font-family: var(--font-hand); font-size: 1.15rem; color: var(--lavender); }
+.notes-grid { list-style: none; margin: 26px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 30px 26px; align-items: start; }
+.note {
+  position: relative; min-width: 0; min-height: 200px;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 26px 18px 16px;
+  background: var(--note-cream); color: var(--cobalt-deep);
+  box-shadow: 6px 7px 0 rgba(10, 12, 70, .45);
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform .2s var(--ease-out);
+}
+.note::before { content: ""; position: absolute; top: -11px; left: 50%; width: 76px; height: 22px; transform: translateX(-50%) rotate(-3deg); background: rgba(244, 236, 223, .62); box-shadow: 0 1px 0 rgba(0, 0, 0, .06); }
+.note:hover { transform: rotate(0deg) translateY(-3px); }
+.note[data-color="lilac"] { background: var(--note-lilac); }
+.note[data-color="coral"] { background: var(--note-coral); }
+.note[data-color="mint"] { background: var(--note-mint); }
+.note-text { margin: 0; flex: 1 1 auto; font-family: var(--font-hand); font-size: 1.32rem; line-height: 1.28; overflow-wrap: anywhere; white-space: pre-wrap; }
+.note-by { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: .95rem; letter-spacing: .06em; text-transform: uppercase; opacity: .8; overflow-wrap: anywhere; }
+.note-x { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--cobalt-deep); font-size: 1.3rem; line-height: 1; cursor: pointer; opacity: .55; }
+.note-x:hover { opacity: 1; background: rgba(20, 22, 122, .1); }
+.note-x:focus-visible { outline: 3px solid var(--orange); opacity: 1; }
+.note.placeholder { background: transparent; color: var(--lavender); box-shadow: none; border: 2.5px dashed rgba(169, 172, 248, .7); }
+.note.placeholder::before { display: none; }
+.note.placeholder .note-text { display: grid; place-items: center; text-align: center; }
+.note.composer { --tilt: -1.2deg; background: var(--note-cream); }
+.note.composer:hover { transform: rotate(var(--tilt)); }
+.composer label.lbl { font-family: var(--font-display); font-weight: 600; font-size: .95rem; letter-spacing: .08em; text-transform: uppercase; }
+.composer textarea, .composer input[type="text"] {
+  width: 100%; min-width: 0; border: 0; border-radius: 3px;
+  background: rgba(255, 255, 255, .55); color: var(--cobalt-deep);
+  font-family: var(--font-hand); font-size: 1.25rem; line-height: 1.3; padding: 8px 10px;
+  box-shadow: inset 0 0 0 1.5px rgba(44, 47, 198, .35);
+}
+.composer textarea { resize: vertical; min-height: 110px; }
+.composer textarea:focus, .composer input:focus { outline: 3px solid var(--orange); outline-offset: 1px; }
+.composer-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 8px; border: 0; margin: 0; padding: 0; }
+.swatches input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.swatches label { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; box-shadow: inset 0 0 0 2px rgba(20, 22, 122, .45); }
+.swatches input:checked + label { box-shadow: inset 0 0 0 2px var(--cobalt-deep), 0 0 0 3px var(--cobalt-deep); }
+.swatches input:focus-visible + label { outline: 3px solid var(--orange); outline-offset: 3px; }
+.count { font-family: var(--font-display); font-size: .95rem; font-variant-numeric: tabular-nums; opacity: .7; }
+.count.over { color: #B5341A; opacity: 1; }
+.stick {
+  border: 0; border-radius: 6px; padding: .3em .8em .24em;
+  background: var(--cobalt); color: #fff;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; letter-spacing: .04em;
+  box-shadow: 0 5px 0 var(--cobalt-deep);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .15s ease;
+}
+.stick:hover:not([disabled]) { transform: translateY(-2px); box-shadow: 0 7px 0 var(--cobalt-deep); }
+.stick:active:not([disabled]) { transform: translateY(4px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+.stick:focus-visible { outline: 3px solid var(--orange); outline-offset: 4px; }
+.stick[disabled] { opacity: .45; cursor: not-allowed; }
+.note.is-new { animation: stick-on .45s var(--ease-out); }
+@keyframes stick-on { from { opacity: 0; transform: translateY(-14px) rotate(6deg) scale(1.05); } }
+@media (max-width: 860px) {
+}
+
+/* ---------- Compact layout ---------- */
+@media (max-width: 960px) {
+  .hud-panels {
+    top: auto; right: max(12px, env(safe-area-inset-right, 0px)); left: max(12px, env(safe-area-inset-left, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    width: auto; flex-direction: row; gap: 14px; align-items: stretch;
+  }
+  .panel { padding: .55em .8em .6em; box-shadow: 7px 7px 0 var(--panel-shadow); min-width: 0; }
+  .panel-count { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; }
+  .panel-latest { flex: 1 1 auto; }
+  .panel h3 { font-size: 1.15rem; }
+  .squiggle { margin: .3em 0; }
+  .big-num { font-size: 2.6rem; }
+  .panel .hand-sub { display: none; }
+  .latest-row svg { width: 52px; }
+  .card {
+    top: auto; right: max(12px, env(safe-area-inset-right, 0px)); left: max(12px, env(safe-area-inset-left, 0px));
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: auto; max-height: 64%; margin-top: 0;
+    transform: rotate(-.5deg);
+    box-shadow: 8px 8px 0 var(--panel-shadow);
+    animation-name: sheet-in;
+  }
+  .card-fish { width: 40%; }
+  .card-body { padding: 12px 18px 12px; }
+  .card-actions { padding: 12px 18px 14px; }
+  .prompt { bottom: var(--prompt-bottom, 190px); gap: 10px; }
+  @keyframes sheet-in { from { opacity: 0; transform: translateY(30px); } }
+}
+@media (max-height: 640px) and (min-width: 961px) {
+  .big-num { font-size: 4rem; }
+  .panel h3 { font-size: 1.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+}
+
+/* ---------- Sound toggle ---------- */
+.sound {
+  position: absolute; z-index: 8;
+  top: calc(clamp(14px, 2.2vh, 40px) + env(safe-area-inset-top, 0px));
+  right: max(clamp(16px, 1.8vw, 48px), env(safe-area-inset-right, 0px));
+  display: grid; place-items: center;
+  width: clamp(44px, 3.6vw, 64px); height: clamp(44px, 3.6vw, 64px);
+  border: 0; border-radius: 6px;
+  background: var(--cobalt); color: #fff;
+  box-shadow: 0 5px 0 var(--cobalt-deep);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.sound svg { width: 58%; height: 58%; }
+.sound:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--cobalt-deep); }
+.sound:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--cobalt-deep); }
+.sound:focus-visible { outline: 3px solid var(--orange); outline-offset: 5px; }
+.sound .icon-off, .sound[aria-pressed="false"] .icon-on { display: none; }
+.sound[aria-pressed="false"] .icon-off { display: inline; }
+</style>
+
+<!-- Shared drawings: fish, patterns, filters -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="cloudDots" width="14" height="14" patternUnits="userSpaceOnUse">
+      <rect width="14" height="14" fill="#CEC8DF"/>
+      <circle cx="4" cy="4" r="1.7" fill="#A29CD2"/>
+      <circle cx="11" cy="11" r="1.4" fill="#9DC3D8"/>
+    </pattern>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="1" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="7"/>
+    </filter>
+    <filter id="silhouette">
+      <feFlood flood-color="#2C2FC6" result="f"/>
+      <feComposite in="f" in2="SourceAlpha" operator="in"/>
+    </filter>
+    <clipPath id="clipClown"><ellipse cx="106" cy="82" rx="72" ry="40"/></clipPath>
+    <clipPath id="clipPuff"><circle cx="96" cy="80" r="62"/></clipPath>
+
+    <!-- Persona 1: pufferfish -->
+    <g id="f-puffer">
+      <path d="M40 80 L12 56 Q6 80 12 104 Z" fill="#5A5EE2"/>
+      <circle cx="96" cy="80" r="62" fill="#7276EE"/>
+      <path d="M20 92 Q96 64 170 92 L170 150 L20 150 Z" fill="#B3B5FB" clip-path="url(#clipPuff)"/>
+      <g fill="none" stroke="#4247D2" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M58 40 l5 -7 l4 7"/><path d="M80 30 l5 -7 l4 7"/><path d="M104 30 l5 -7 l4 7"/>
+        <path d="M66 58 l5 -7 l4 7"/><path d="M90 50 l5 -7 l4 7"/><path d="M48 64 l5 -7 l4 7"/>
+        <path d="M60 104 l5 7 l4 -7"/><path d="M84 116 l5 7 l4 -7"/><path d="M108 112 l5 7 l4 -7"/><path d="M128 102 l5 7 l4 -7"/>
+      </g>
+      <path d="M86 98 q12 14 26 4" fill="none" stroke="#6E72EA" stroke-width="5" stroke-linecap="round"/>
+      <!-- tiny sunglasses -->
+      <path d="M90 62 L106 64" stroke="#16185E" stroke-width="3.5" stroke-linecap="round"/>
+      <rect x="104" y="58" width="24" height="15" rx="6" fill="#16185E"/>
+      <rect x="133" y="58" width="22" height="15" rx="6" fill="#16185E"/>
+      <path d="M128 63 L133 63" stroke="#16185E" stroke-width="3.5"/>
+      <path d="M109 62 L116 62" stroke="#F4ECDF" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M138 62 L144 62" stroke="#F4ECDF" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M140 90 Q150 97 160 88" fill="none" stroke="#16185E" stroke-width="3.4" stroke-linecap="round"/>
+    </g>
+
+    <!-- Persona 2: clownfish -->
+    <g id="f-clown">
+      <path d="M44 82 C28 56 12 54 8 64 C16 74 16 90 8 100 C12 110 28 108 44 82 Z" fill="#6F73E8"/>
+      <path d="M70 48 Q98 18 130 46 Z" fill="#6F73E8"/>
+      <path d="M94 116 Q106 140 120 118 Z" fill="#6F73E8"/>
+      <ellipse cx="106" cy="82" rx="72" ry="40" fill="#9295F5"/>
+      <g clip-path="url(#clipClown)" stroke="#1B1C5C" stroke-width="3" fill="#F4ECDF">
+        <path d="M66 36 Q56 82 68 130 L86 130 Q74 82 84 36 Z"/>
+        <path d="M126 36 Q138 82 126 130 L144 130 Q154 82 144 36 Z"/>
+      </g>
+      <circle cx="158" cy="70" r="9.5" fill="#F4ECDF"/>
+      <circle cx="154" cy="66" r="4.6" fill="#16185E"/>
+      <path d="M146 58 Q156 52 166 58" fill="none" stroke="#16185E" stroke-width="3" stroke-linecap="round"/>
+      <path d="M160 94 Q168 98 176 88" fill="none" stroke="#16185E" stroke-width="3.2" stroke-linecap="round"/>
+    </g>
+
+    <!-- Persona 3: goldfish -->
+    <g id="f-gold">
+      <path d="M62 86 C34 48 12 50 6 62 C16 74 18 86 6 100 C12 118 36 116 62 92 Z" fill="#C6C8FC"/>
+      <path d="M22 66 Q36 76 50 84 M20 104 Q36 98 50 92" fill="none" stroke="#8E91F2" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M84 48 Q100 26 120 48 Z" fill="#C6C8FC"/>
+      <ellipse cx="102" cy="86" rx="52" ry="42" fill="#7F83F0"/>
+      <ellipse cx="106" cy="104" rx="38" ry="18" fill="#A9ACF8"/>
+      <path d="M92 108 Q102 122 112 108" fill="#C6C8FC"/>
+      <circle cx="128" cy="76" r="16" fill="#F4ECDF"/>
+      <circle cx="128" cy="77" r="3.6" fill="#16185E"/>
+      <circle cx="150" cy="94" r="4.2" fill="none" stroke="#16185E" stroke-width="3"/>
+      <text x="138" y="40" font-family="Antonio, Arial Narrow, sans-serif" font-weight="700" font-size="40" fill="#F4ECDF" transform="rotate(10 150 30)">?</text>
+    </g>
+
+    <!-- Persona 4: anglerfish -->
+    <g id="f-angler">
+      <circle cx="170" cy="30" r="18" fill="#F4ECDF" opacity=".22"/>
+      <path d="M112 44 C112 12 150 2 170 22" fill="none" stroke="#4146CF" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M170 42 C158 33 158 23 164 21 C168 19 170 23 170 25 C170 23 172 19 176 21 C182 23 182 33 170 42 Z" fill="#E8604C"/>
+      <path d="M42 92 L12 66 L16 116 Z" fill="#4146CF"/>
+      <path d="M40 92 C40 46 90 30 130 44 C160 54 170 80 162 104 C152 132 98 140 64 128 C48 120 40 106 40 92 Z" fill="#5C60E6"/>
+      <path d="M118 96 C134 90 158 92 168 100 C158 122 128 126 110 112 Z" fill="#16185E"/>
+      <path d="M124 98 l4 8 l4 -8 l4 8 l4 -8 l4 8 l4 -8 l4 7" fill="none" stroke="#F4ECDF" stroke-width="2.8" stroke-linejoin="round"/>
+      <path d="M118 111 l5 -7 l5 7 l5 -7 l5 7 l5 -7 l5 6" fill="none" stroke="#F4ECDF" stroke-width="2.8" stroke-linejoin="round"/>
+      <path d="M82 110 Q70 130 96 124 Z" fill="#4146CF"/>
+      <circle cx="122" cy="66" r="8" fill="#F4ECDF"/>
+      <circle cx="124" cy="65" r="3.8" fill="#16185E"/>
+    </g>
+
+    <!-- Persona 5: shark -->
+    <g id="f-shark">
+      <path d="M36 80 L6 44 L20 84 L6 122 Z" fill="#7175E6"/>
+      <path d="M84 54 L104 14 L122 52 Z" fill="#7175E6"/>
+      <path d="M30 84 C56 50 130 44 170 66 C186 74 192 86 186 94 C170 112 112 122 60 108 C44 104 34 96 30 84 Z" fill="#8E91F2"/>
+      <path d="M66 104 C110 114 160 108 186 94 C176 114 120 124 66 104 Z" fill="#F4ECDF"/>
+      <path d="M122 74 q-5 10 0 20 M131 72 q-5 10 0 20 M140 72 q-5 10 0 20" fill="none" stroke="#6E72E2" stroke-width="3" stroke-linecap="round"/>
+      <path d="M106 102 L94 130 L124 106 Z" fill="#7175E6"/>
+      <circle cx="158" cy="74" r="6.5" fill="#F4ECDF"/>
+      <circle cx="159" cy="76" r="3.2" fill="#16185E"/>
+      <path d="M150 72 L167 69" stroke="#16185E" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M146 96 Q166 104 186 91 Q170 110 146 96 Z" fill="#FFFFFF" stroke="#16185E" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M156 99 v5 M164 100 v5 M172 98 v5" stroke="#16185E" stroke-width="1.6"/>
+      <circle cx="182" cy="86" r="1.8" fill="#16185E"/>
+    </g>
+
+    <!-- Persona 6: jellyfish -->
+    <g id="f-jelly">
+      <g fill="none" stroke-linecap="round" stroke-width="5">
+        <path d="M68 92 C60 112 76 124 66 146" stroke="#C9B9F8"/>
+        <path d="M86 96 C94 116 80 132 90 154" stroke="#DCD0FB"/>
+        <path d="M108 96 C100 118 114 132 106 156" stroke="#C9B9F8"/>
+        <path d="M128 92 C136 110 122 126 132 146" stroke="#DCD0FB"/>
+      </g>
+      <path d="M44 92 C44 44 70 22 100 22 C130 22 156 44 156 92 C146 98 136 90 128 96 C118 102 110 92 100 98 C90 104 80 94 72 98 C62 102 54 94 44 92 Z" fill="#B9A8F5"/>
+      <path d="M62 58 C66 42 80 34 92 33" fill="none" stroke="#E6DDFD" stroke-width="5" stroke-linecap="round"/>
+      <path d="M78 68 q6 -8 12 0 M110 68 q6 -8 12 0" fill="none" stroke="#16185E" stroke-width="3.4" stroke-linecap="round"/>
+      <ellipse cx="76" cy="80" rx="7" ry="4" fill="#F08AA0" opacity=".8"/>
+      <ellipse cx="124" cy="80" rx="7" ry="4" fill="#F08AA0" opacity=".8"/>
+      <path d="M94 78 q6 7 12 0" fill="none" stroke="#16185E" stroke-width="3.2" stroke-linecap="round"/>
+    </g>
+
+    <!-- Unknown shape that approaches the hook -->
+    <g id="f-shadow">
+      <path d="M22 50 C50 18 112 18 140 50 C112 82 50 82 22 50 Z"/>
+      <path d="M26 50 L0 30 L6 50 L0 70 Z"/>
+    </g>
+
+    <!-- Ambient swimmers, after the existing screen -->
+    <g id="f-amb-puff">
+      <path d="M150 74 L176 58 L172 92 Z" fill="#5A5EE2"/>
+      <circle cx="96" cy="80" r="62" fill="#6A6EE8"/>
+      <path d="M34 86 Q96 64 158 86 A62 62 0 0 1 34 86 Z" fill="#A6A9F8"/>
+      <g fill="none" stroke="#4E52D6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M86 36 l5 -6 l4 6"/><path d="M106 40 l5 -6 l4 6"/><path d="M118 56 l5 -6 l4 6"/><path d="M110 70 l5 -6 l4 6"/>
+        <path d="M64 108 l4 6 l5 -6"/><path d="M90 116 l4 6 l5 -6"/><path d="M114 106 l4 6 l5 -6"/><path d="M50 98 l-4 4 l4 4"/>
+      </g>
+      <ellipse cx="50" cy="66" rx="7" ry="4" fill="#F4ECDF"/><circle cx="48" cy="66" r="2.8" fill="#16185E"/>
+      <ellipse cx="72" cy="66" rx="7" ry="4" fill="#F4ECDF"/><circle cx="70" cy="66" r="2.8" fill="#16185E"/>
+    </g>
+    <g id="f-amb-sun">
+      <path d="M86 52 Q94 6 124 54 Z" fill="#7175EC"/>
+      <path d="M86 148 Q94 196 124 146 Z" fill="#7175EC"/>
+      <path d="M56 60 q-12 6 -4 14 q-10 8 -2 16 q-10 8 -2 16 q-10 8 -2 16 q-8 10 6 16 Z" fill="#6A6EE8"/>
+      <ellipse cx="104" cy="100" rx="52" ry="58" fill="#5D61E8"/>
+      <path d="M70 132 C100 90 150 96 156 110 C150 140 104 160 70 132 Z" fill="#7F83EF"/>
+      <ellipse cx="98" cy="102" rx="10" ry="8" fill="#7F83EF"/>
+      <ellipse cx="136" cy="86" rx="7" ry="4.5" fill="#F4ECDF"/><circle cx="138" cy="86" r="2.8" fill="#16185E"/>
+      <circle cx="156" cy="100" r="5" fill="#6A6EE8"/>
+    </g>
+
+    <!-- Cream fish icon from the Latest Unlock panel -->
+    <g id="f-icon">
+      <path d="M30 40 C50 8 96 10 114 40 C96 70 50 72 30 40 Z" fill="#F4ECDF"/>
+      <path d="M34 40 L8 16 L16 40 L8 66 Z" fill="#F4ECDF"/>
+      <circle cx="94" cy="34" r="4" fill="#2C2FC6"/>
+    </g>
+  </defs>
+</svg>
+
+<main class="stage" id="stage" data-view="landing" data-state="landing">
+  <div class="sky" aria-hidden="true"></div>
+
+  <div class="clouds" aria-hidden="true">
+    <svg class="cloud a" viewBox="0 0 300 240"><g fill="url(#cloudDots)" filter="url(#rough)"><circle cx="96" cy="96" r="84"/><circle cx="196" cy="150" r="76"/><circle cx="60" cy="160" r="60"/><circle cx="150" cy="70" r="52"/><circle cx="120" cy="170" r="56"/></g></svg>
+    <svg class="cloud b" viewBox="0 0 300 220"><g fill="url(#cloudDots)" filter="url(#rough)"><circle cx="90" cy="120" r="64"/><circle cx="160" cy="84" r="70"/><circle cx="220" cy="120" r="58"/><circle cx="170" cy="150" r="56"/></g></svg>
+    <svg class="cloud c" viewBox="0 0 300 260"><g fill="url(#cloudDots)" filter="url(#rough)"><circle cx="90" cy="160" r="76"/><circle cx="170" cy="100" r="86"/><circle cx="250" cy="130" r="70"/><circle cx="190" cy="190" r="64"/></g></svg>
+  </div>
+
+  <svg class="layer boat-layer" id="boatLayer" aria-hidden="true">
+    <g id="octoBack" style="display:none"></g>
+    <g id="boatG">
+      <path d="M-80 -26 L78 -24 L66 9 L-48 9 Z" fill="#C4532A"/>
+      <path d="M-11 -50 L44 -49 L46 -25 L-15 -25 Z" fill="#C4532A"/>
+      <rect x="-15" y="-55" width="62" height="5" rx="2.5" fill="#C4532A"/>
+      <circle cx="2" cy="-38" r="4.6" fill="#F4ECDF"/>
+      <circle cx="15" cy="-37.5" r="4.6" fill="#F4ECDF"/>
+      <circle cx="28" cy="-37" r="4.6" fill="#F4ECDF"/>
+      <path d="M-78 -26 L78 -24" stroke="#A9441F" stroke-width="2" opacity=".6"/>
+    </g>
+    <g id="octoFront" style="display:none"></g>
+  </svg>
+
+  <div class="ocean" id="ocean">
+    <svg id="oceanSvg" aria-hidden="true">
+      <path id="waterPath" fill="#2C2FC6"/>
+      <g class="drift" id="waveLines" fill="none" stroke="#5458DB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></g>
+    </svg>
+    <div id="motes" aria-hidden="true"></div>
+  </div>
+
+  <svg class="layer rig-layer" id="rig" aria-hidden="true">
+    <g id="fxBack"></g>
+    <g id="school"></g>
+    <line id="rod" stroke="#1B1C5C" stroke-linecap="round"/>
+    <circle id="reel" fill="#1B1C5C"/>
+    <path id="line" fill="none" stroke="#F4ECDF" stroke-linecap="round"/>
+    <g id="fishG"><use id="fishUse" href="#f-puffer"/></g>
+    <g id="hookG" fill="none" stroke="#F4ECDF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="0" cy="0" r="4.6" fill="#2C2FC6"/>
+      <path d="M0 4.6 L0 24 C0 35 -14 36 -14 25 L-14 19 L-18.5 24.5"/>
+    </g>
+    <g id="fxFront"></g>
+  </svg>
+
+  <section class="landing" id="landing" aria-labelledby="gameTitle">
+    <h1 class="title" id="gameTitle" aria-label="Plenty of Fish in the Sea">
+      <span class="t1" aria-hidden="true">PLENTY OF FISH</span>
+      <span class="t2" aria-hidden="true">IN THE
+        <svg class="sea-word" viewBox="0 0 300 130"><path d="M98 22 C74 25 44 30 28 39 C16 46 22 53 42 55 C72 57 94 61 94 79 C94 100 62 108 36 105 C26 104 21 98 22 87"/><path d="M112 82 C132 82 152 80 158 70 C164 57 154 48 140 50 C118 54 108 74 112 92 C116 106 138 110 162 105"/><path d="M246 64 C240 50 214 46 196 54 C180 62 178 86 190 96 C204 106 230 100 242 88 C248 80 250 70 250 62 L248 90 C248 100 262 106 284 103"/></svg>
+      </span>
+    </h1>
+    <div class="entry">
+      <button class="cta" id="cta" type="button">
+        <span>ENTER THE DATING POOL</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 1 L19 10 L2 19 Z" fill="currentColor"/></svg>
+      </button>
+      <div class="entry-links">
+        <button class="linkish" id="landingLog" type="button">FISH LOG</button>
+        <button class="linkish" id="landingAbout" type="button">ABOUT</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="prompt" id="prompt">
+    <p class="caption" id="caption" aria-live="polite"></p>
+    <div class="prompt-actions">
+      <button class="reel-btn" id="reelBtn" type="button" hidden>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2 v11 M5 9 l5 5 l5 -5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="rotate(180 10 10)"/></svg>
+        <span id="reelLabel">CLICK TO REEL IN A CATCH</span>
+      </button>
+      <button class="throw-btn" id="throwBtn" type="button" hidden>THROW IT BACK</button>
+    </div>
+    <p class="controls-hint" id="controlsHint" hidden></p>
+  </div>
+
+  <div class="hud" id="hud">
+    <button class="back" id="backBtn" type="button" aria-label="Back to the landing page">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M18 1 L1 10 L18 19 Z" fill="currentColor"/></svg>
+      <span>BACK</span>
+    </button>
+    <aside class="hud-panels" aria-label="Catch stats">
+      <section class="panel panel-count">
+        <h3>YOUR CATCHES</h3>
+        <div class="squiggle" aria-hidden="true"></div>
+        <span class="big-num" id="countNum">0</span>
+        <p class="hand hand-sub">fish caught</p>
+      </section>
+      <section class="panel panel-latest">
+        <h3>LATEST UNLOCK</h3>
+        <div class="squiggle" aria-hidden="true"></div>
+        <div class="latest-row">
+          <svg viewBox="0 0 120 80" aria-hidden="true"><use href="#f-icon"/></svg>
+          <div>
+            <button class="latest-name" id="latestName" type="button" disabled>
+              <span id="latestLabel">Nothing yet</span>
+              <svg id="latestInfo" viewBox="0 0 20 20" aria-hidden="true" hidden><circle cx="10" cy="10" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="6" r="1.3" fill="currentColor"/><path d="M10 9 v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+            <p class="hand latest-meta" id="latestMeta">Standards: suspiciously high</p>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <p class="ex-caption" id="exCaption" role="status" hidden>Your ex has entered the ecosystem.</p>
+  <p class="uup" id="uup" hidden><span>u up?</span></p>
+  <div class="ex-end" id="exEnd" hidden>
+    <div class="ex-recovery" id="exRecovery" hidden>
+      <p class="ex-awk">Well. This is awkward.</p>
+      <div class="ex-actions">
+        <button class="reel-btn" id="exAgain" type="button">GET BACK OUT THERE</button>
+        <button class="throw-btn" id="exLog" type="button">404 ERROR</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="sound" id="soundBtn" type="button" aria-pressed="true" aria-label="Sound">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9 H7 L12 4.5 V19.5 L7 15 H3 Z" fill="currentColor"/>
+      <path class="icon-on" d="M16 8.5 Q18.5 12 16 15.5 M19 6 Q23 12 19 18"/>
+      <path class="icon-off" d="M16.5 9 L21.5 15 M21.5 9 L16.5 15"/>
+    </svg>
+  </button>
+
+  <div class="card" id="card" role="dialog" aria-labelledby="cardName" aria-describedby="cardFlag" hidden>
+    <div class="card-body">
+    <div class="card-top">
+      <svg class="card-fish" viewBox="0 0 200 160" aria-hidden="true"><use id="cardFishUse" href="#f-puffer"/></svg>
+      <span class="stamp" id="cardStamp">new<br>catch!</span>
+    </div>
+    <p class="eyebrow" id="cardMeta"></p>
+    <h2 class="card-name" id="cardName"></h2>
+    <p class="card-blurb" id="cardBlurb"></p>
+    <div class="flag">
+      <p class="flag-label"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 19 V2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 3 L17 6 L5 10 Z" fill="currentColor"/></svg>RED FLAG</p>
+      <p id="cardFlag"></p>
+    </div>
+    <p class="card-says"><span>Signature line</span><q id="cardCatch"></q></p>
+    <p class="card-commentary" id="cardComment"></p>
+    </div>
+    <div class="card-actions">
+      <button class="btn btn-cream" id="againBtn" type="button">BACK TO FISHING</button>
+      <button class="btn btn-ghost" id="viewLogBtn" type="button">VIEW IN FISH LOG</button>
+    </div>
+  </div>
+
+  <section class="log" id="log" role="dialog" aria-modal="true" aria-labelledby="logTitle" hidden>
+    <div class="log-head">
+      <button class="back" id="logBack" type="button" aria-label="Close the Fish Log">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M18 1 L1 10 L18 19 Z" fill="currentColor"/></svg>
+        <span>BACK</span>
+      </button>
+      <h2 class="log-title" id="logTitle">FISH LOG</h2>
+      <p class="log-stats" id="logStats"></p>
+    </div>
+    <ul class="log-grid" id="logGrid"></ul>
+    <div class="log-foot"><button class="reset" id="resetBtn" type="button">Throw them all back (clear log)</button></div>
+  </section>
+
+  <section class="about" id="about" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
+    <div class="about-top">
+      <button class="back" id="aboutBack" type="button" aria-label="Back to the home screen">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M18 1 L1 10 L18 19 Z" fill="currentColor"/></svg>
+        <span>BACK</span>
+      </button>
+    </div>
+    <div class="about-wrap">
+      <header class="about-hero">
+        <h2 class="hi-title" id="aboutTitle">HI LOL <span class="nowrap"><span class="waves">(waves at you)</span>,</span> ANNANYA THIS SIDE</h2>
+        <div class="about-links">
+          <a class="pill" href="https://www.linkedin.com/in/annanya-sharma-751530306/" target="_blank" rel="noopener noreferrer">LINKEDIN <span aria-hidden="true">↗</span></a>
+          <a class="pill" href="https://annanyasharma.framer.website/" target="_blank" rel="noopener noreferrer">PORTFOLIO <span aria-hidden="true">↗</span></a>
+        </div>
+      </header>
+
+      <section class="story-wrap" aria-label="The story behind the game">
+        <article class="story">
+          <p>Plenty of Fish in the Sea started with a rather school of thought: why does so much of our relationship vocabulary revolve around water?</p>
+          <p><span class="wiggle">We drift apart, give lukewarm answers, get catfished, try to go with the flow, and sometimes end up with someone who's a little too hard-shelled. Apparently, even our love lives have aquatic tendencies.</span></p>
+          <p>And perhaps this was all written in the stars, because I'm a Pisces too. ♓ Maybe I was always destined to make a game about fish and questionable romantic decisions. The universe works in mysterious (and occasionally mildly fishy) ways.</p>
+          <p>This little linguistic rabbit hole (or should I say, fishing hole?) collided with a fond memory of an <span class="wiggle">old rotating musical fishing toy</span> I used to play with. And just like that, a childhood memory and an overthinking session had a fishy little love child.</p>
+          <p>The result is an interactive satire game that explores how we navigate the dating pool, the red flags we overlook, the patterns we repeat, and the questionable catches we convince ourselves are the one.</p>
+          <blockquote class="pull">Because, sure, there's plenty of fish in the sea. But how many are actually worth keeping?</blockquote>
+          <p>I made this game in the hope that you'll have a little fun, spot a few familiar characters, and maybe reflect on your own fishing habits along the way. No fish were harmed in the making of this game. Egos, perhaps.</p>
+          <p class="bait">Your turn to take the bait.</p>
+          <p>If you played the game, I'd love to know what stood out to you, which fish felt a little too familiar, or what you'd add to this wonderfully questionable ocean.</p>
+          <p>And yes, I'm absolutely fishing for compliments. Constructive criticism is welcome too :))</p>
+          <p>Thanks for your time!</p>
+        </article>
+      </section>
+    </div>
+
+    <footer class="notes-sea" aria-labelledby="notesTitle">
+      <svg class="edge" viewBox="0 0 1200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M0 12 L0 6 Q15 2 30 6 T60 6 T90 6 T120 6 T150 6 T180 6 T210 6 T240 6 T270 6 T300 6 T330 6 T360 6 T390 6 T420 6 T450 6 T480 6 T510 6 T540 6 T570 6 T600 6 T630 6 T660 6 T690 6 T720 6 T750 6 T780 6 T810 6 T840 6 T870 6 T900 6 T930 6 T960 6 T990 6 T1020 6 T1050 6 T1080 6 T1110 6 T1140 6 T1170 6 T1200 6 L1200 12 Z" fill="#2C2FC6"/></svg>
+      <div class="notes-inner">
+        <div class="notes-head">
+          <h3 class="notes-title" id="notesTitle">LEAVE A NOTE</h3>
+        </div>
+        <p class="notes-status" id="notesStatus" aria-live="polite">Fetching the notes…</p>
+        <ul class="notes-grid" id="notesGrid">
+          <li class="note composer" id="composer">
+            <form id="noteForm" novalidate>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <label class="lbl" for="noteText">Your note</label>
+                <textarea id="noteText" maxlength="400" placeholder="The Love Bomber was my ex. Every single line."></textarea>
+                <label class="lbl" for="noteBy">Sign it (optional)</label>
+                <input type="text" id="noteBy" maxlength="40" placeholder="A fellow fish" autocomplete="nickname">
+                <div class="composer-row">
+                  <fieldset class="swatches" aria-label="Note colour">
+                    <input type="radio" name="noteColor" id="nc-cream" value="cream" checked><label for="nc-cream" style="background:var(--note-cream)" title="Cream"></label>
+                    <input type="radio" name="noteColor" id="nc-lilac" value="lilac"><label for="nc-lilac" style="background:var(--note-lilac)" title="Lilac"></label>
+                    <input type="radio" name="noteColor" id="nc-coral" value="coral"><label for="nc-coral" style="background:var(--note-coral)" title="Coral"></label>
+                    <input type="radio" name="noteColor" id="nc-mint" value="mint"><label for="nc-mint" style="background:var(--note-mint)" title="Mint"></label>
+                  </fieldset>
+                  <span class="count" id="noteCount">0 / 220</span>
+                </div>
+                <button class="stick" id="stickBtn" type="submit" disabled>STICK IT ON THE BOARD</button>
+              </div>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </footer>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= Data ================= */
+  const PERSONAS = [
+    { id: 'puffer', fish: 'f-puffer', name: 'The Inflated Ego', species: 'Pufferfish', label: 'Main Character Energy', rarity: 'Common', weight: 22,
+      hang: -80, anchor: [158, 90],
+      redFlag: 'Believes accountability is a type of tax.',
+      catchphrase: "You just can't handle my energy.",
+      blurb: 'Spent the whole first date explaining his own vibe. Asked you zero questions. Called it chemistry.',
+      commentary: 'Common catch. Uncommonly loud.',
+      hint: 'Takes up more room than strictly necessary.' },
+    { id: 'clown', fish: 'f-clown', name: 'The Situationship Specialist', species: 'Clownfish', label: 'Commitment-Adjacent', rarity: 'Common', weight: 22,
+      hang: -80, anchor: [176, 88],
+      redFlag: 'Wants all the benefits of a relationship with none of the terms and conditions.',
+      catchphrase: 'Why do we have to label everything?',
+      blurb: 'Comes to every family dinner. Introduces you as "my friend" at all of them.',
+      commentary: 'Catch and release, apparently. Mostly release.',
+      hint: 'Lives in an anemone. Emotionally, too.' },
+    { id: 'gold', fish: 'f-gold', name: 'The Goldfish Memory', species: 'Goldfish', label: 'Selectively Forgetful', rarity: 'Common', weight: 20,
+      hang: -80, anchor: [152, 92],
+      redFlag: 'You have to reintroduce yourself every Tuesday.',
+      catchphrase: 'Wait, have you told me this before?',
+      blurb: "Forgot your birthday. Remembered their ex's dog's birthday. Twice.",
+      commentary: 'Three-second attention span. Lifetime of excuses.',
+      hint: "You've definitely met before. They don't remember." },
+    { id: 'angler', fish: 'f-angler', name: 'The Love Bomber', species: 'Anglerfish', label: 'Too Good to Be True', rarity: 'Rare', weight: 9,
+      hang: -76, anchor: [162, 102],
+      redFlag: 'Mistakes emotional acceleration for intimacy.',
+      catchphrase: "I've never felt this way about anyone before.",
+      blurb: "Three dates in and you're already on the wedding Pinterest board.",
+      commentary: 'Rare catch. Common emotional damage.',
+      hint: 'Shines brightest in the dark. Suspiciously bright.' },
+    { id: 'shark', fish: 'f-shark', name: 'The Serial Dater', species: 'Shark', label: 'Networking, Romantically', rarity: 'Uncommon', weight: 14,
+      hang: -80, anchor: [184, 92],
+      redFlag: 'Has a personal brand but no personal depth.',
+      catchphrase: 'So, what value do you bring to the table?',
+      blurb: 'Asked where you see yourself in five years. On date one. Sent a follow-up email.',
+      commentary: 'Has been circling since 2019.',
+      hint: 'Already viewed your LinkedIn.' },
+    { id: 'jelly', fish: 'f-jelly', name: 'The People Pleaser', species: 'Jellyfish', label: 'Shapeshifting Sweetheart', rarity: 'Uncommon', weight: 13,
+      hang: 0, anchor: [100, 24],
+      redFlag: "You aren't dating a person; you're dating a mirror.",
+      catchphrase: 'No, no, whatever you prefer!',
+      blurb: 'Loved hiking with their last partner. Loves staying in with you. Has never once been asked what they love.',
+      commentary: 'Spineless. Literally. It is a jellyfish.',
+      hint: 'Goes with the flow. Any flow. Your flow.' }
+  ];
+  const BY_ID = Object.fromEntries(PERSONAS.map(p => [p.id, p]));
+
+  const LINES = {
+    firstReady: ['Your next red flag is just below the surface.'],
+    ready: ['Plenty more where that came from.', 'Back in the pool. Lower your expectations.', 'Fresh bait, same old patterns.', 'The sea is big. Your type is not.'],
+    waiting: ['Separating the fish from the fiction…', 'Checking for emotional availability…', "Please don't fall for the bait.", 'Scanning the waters for questionable decisions…', 'testing the waters'],
+    impatient: ['Patience. Rare trait, we know.', 'Double-texting the ocean will not help.'],
+    bite: ["Ooh. Someone's taking the bait…", "Something's fishy…", 'They liked your photo from 2017.'],
+    reel: ["Let's see what you've hooked.", 'Reeling in another character development opportunity…'],
+    reveal: ["Looks like your type. That's concerning.", 'Plot twist: the fish was the problem.', 'The red flags were there. You just called them decor.'],
+    release: ['Thrown back. Someone else’s problem now.', 'Released into the wild. Godspeed, everyone else.', 'Unmatched.'],
+    notice: ['Someone noticed you. Act casual.', 'Incoming. Fix your hair.', "They're circling. Classic."],
+    reject: ['Rejected. Their loss. Probably.', 'Swiped left, underwater.', 'You deserve better. Allegedly.'],
+    exBack: ['Back in the water. Emotionally, too.', 'Blocked, deleted, back to fishing.', 'Healing era. Rod in hand.'],
+    desperate: ['Fine. Whoever is closest, then.', 'Lowering your standards automatically…']
+  };
+
+  /* ================= Utilities ================= */
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reduced = mq.matches;
+  if (mq.addEventListener) mq.addEventListener('change', e => { reduced = e.matches; });
+
+  function shuffleBag(list) {
+    let last = -1;
+    return () => {
+      let i = Math.floor(Math.random() * list.length);
+      if (list.length > 1 && i === last) i = (i + 1) % list.length;
+      last = i;
+      return list[i];
+    };
+  }
+  const say = Object.fromEntries(Object.entries(LINES).map(([k, v]) => [k, shuffleBag(v)]));
+
+  function seeded(seed) {
+    return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+
+  const ease = {
+    out: t => 1 - Math.pow(1 - t, 3),
+    in: t => t * t * t,
+    inOut: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+    back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+    softBack: t => { const c1 = .9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+  };
+
+  /* ================= Fish Log store ================= */
+  const STORE_KEY = 'plenty-of-fish.fishlog.v1';
+  function emptyLog() { return { total: 0, latest: null, fish: {} }; }
+  function loadLog() {
+    try {
+      const raw = window.localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d && typeof d.total === 'number' && d.fish && typeof d.fish === 'object') return d;
+      }
+    } catch (e) { /* storage blocked: session-only log */ }
+    return emptyLog();
+  }
+  function saveLog() { try { window.localStorage.setItem(STORE_KEY, JSON.stringify(log)); } catch (e) { /* ignore */ } }
+  let log = loadLog();
+
+  /* ================= Elements ================= */
+  const stage = $('stage'), ocean = $('ocean'), oceanSvg = $('oceanSvg'), waterPath = $('waterPath'), waveLines = $('waveLines');
+  const boatLayer = $('boatLayer'), boatG = $('boatG'), rig = $('rig');
+  const rodEl = $('rod'), reelEl = $('reel'), lineEl = $('line'), hookG = $('hookG'), fishG = $('fishG'), fishUse = $('fishUse'), schoolG = $('school');
+  const fxBack = $('fxBack'), fxFront = $('fxFront');
+  const cta = $('cta'), caption = $('caption'), reelBtn = $('reelBtn'), reelLabel = $('reelLabel');
+  const card = $('card'), logEl = $('log');
+
+  /* ================= Scene (all motion values live here) ================= */
+  const sc = {
+    t: 0, W: 0, H: 0, S: 1,
+    sea: 0,       // 0 = landing strip, 1 = game ocean
+    alive: 0,     // ambient bob/rock amount
+    rodExt: 0, rodAng: 22, rodTilt: 0,
+    hookP: 0,     // 0 = dangling at rod tip, 1 = resting depth
+    tug: 0, rock: 0,
+    fish: null,   // persona while a fish is on screen
+    boatOff: 0, vx: 0,   // player steering: boat offset from its default spot, and speed
+    depthF: .33,         // hook depth as a share of the water column
+    aim: null,           // tap-to-steer target {x, y}
+    suitor: null,        // the fish currently swimming for the bait
+    waitT: 0,
+    fishSw: null, // the school member currently on the line
+    sinkY: 0, sinkRot: 0, shake: 0,   // the Clingy Ex: boat dragged down (boat-local units), tilt, and panic rocking
+    fishMode: 'hook', fishScale: 1, fishFace: 1, hangT: 0, wiggle: 0, fx: 0, fy: 0, frot: 0
+  };
+
+  /* ================= The school: every persona lives in the water ================= */
+  const school = [];
+  const NOTICE = { Common: [.35, .8], Uncommon: [.7, 1.4], Rare: [1.2, 2.2] };  // shy fish take longer to commit
+  function rollNotice(f) { const r = NOTICE[f.persona.rarity] || NOTICE.Common; f.notice = rand(r[0], r[1]); }
+  function buildSchool() {
+    const rnd = seeded(11);
+    const lanes = [.14, .62, .25, .74, .86, .52, .95];
+    const members = PERSONAS.map(p => ({ persona: p, href: p.fish, cx: 100, cy: 80, size: .55 }));
+    members.push({ persona: null, href: 'f-amb-sun', cx: 100, cy: 100, size: .48 });
+    const markG = document.createElementNS(NS, 'g');
+    schoolG.after(markG);
+    members.forEach((m, i) => {
+      const el = document.createElementNS(NS, 'use');
+      el.setAttribute('href', '#' + m.href);
+      schoolG.appendChild(el);
+      const mark = document.createElementNS(NS, 'text');
+      mark.setAttribute('text-anchor', 'middle');
+      mark.setAttribute('fill', '#F4ECDF');
+      mark.setAttribute('font-family', 'Antonio, Arial Narrow, sans-serif');
+      mark.setAttribute('font-weight', '700');
+      mark.style.display = 'none';
+      markG.appendChild(mark);
+      const dir = rnd() < .5 ? -1 : 1;
+      const f = { ...m, el, mark, xf: .08 + rnd() * .84, x: null, y: 0, lane: lanes[i % lanes.length], phase: rnd() * 6,
+        speed: 22 + rnd() * 30, boost: 1, dir, face: dir, turnAt: 3 + rnd() * 10, mode: 'swim', seek: null, interest: 0, ignoreUntil: 0 };
+      if (f.persona) rollNotice(f);
+      school.push(f);
+    });
+  }
+
+  // While waiting, whichever fish you park the hook beside gets curious, then commits.
+  function stepSuitors(dt, g) {
+    if (state !== 'waiting' || sc.suitor) return;
+    sc.waitT += dt;
+    const S = sc.S, hx = g.hookX, hy = g.hookY + 20 * S, R = 190 * S;
+    let best = null, bestD = Infinity, near = null, nearD = Infinity;
+    for (const f of school) {
+      if (!f.persona || f.mode !== 'swim') continue;
+      if (sc.t < f.ignoreUntil) { f.interest = 0; continue; }
+      const d = Math.hypot(f.x - hx, (f.y - hy) * 1.5);
+      if (d < nearD) { near = f; nearD = d; }
+      f.interest = d < R ? f.interest + dt : Math.max(0, f.interest - dt * 2);
+      if (f.interest >= f.notice && d < bestD) { best = f; bestD = d; }
+    }
+    if (!best && sc.waitT > 8 && near) { best = near; bestD = nearD; setCaption(say.desperate()); }
+    else if (best) setCaption(say.notice());
+    if (best) startSeek(best, bestD);
+  }
+
+  function startSeek(f, d) {
+    sc.suitor = f;
+    current = { uid: ++catchSeq, persona: f.persona, recorded: false, isNew: false };
+    const travel = clamp(d / (260 * sc.S), .55, 1.6);
+    f.seek = { from: sc.t, until: sc.t + (reduced ? 0 : travel), sx: null, sy: null };
+    for (const o of school) o.interest = 0;
+    Sound.notice();
+  }
+
+  function stepSchool(dt, g) {
+    const { W, S } = sc, span = staticGeo().span;
+    for (const f of school) {
+      if (f.x == null) f.x = f.xf * W;
+      if (f.mode === 'hooked') { f.el.style.display = 'none'; f.mark.style.display = 'none'; continue; }
+      f.el.style.display = '';
+      const k = f.size * S;
+      const laneY = g.surface + f.lane * span + (reduced ? 0 : Math.sin(sc.t * .8 + f.phase) * 6 * S);
+      if (f.seek) {
+        // swims straight for the bait, mouth first, and follows the hook if you move it
+        const s = f.seek, m = fishMouth(g), p = f.persona;
+        if (s.sx == null) { s.sx = f.x; s.sy = f.y || laneY; s.dir = m.x >= f.x ? 1 : -1; }
+        f.dir = s.dir;
+        const tx = m.x - (p.anchor[0] - f.cx) * k * s.dir, ty = m.y - (p.anchor[1] - f.cy) * k;
+        const raw = s.until > s.from ? clamp((sc.t - s.from) / (s.until - s.from), 0, 1) : 1;
+        const q = ease.inOut(raw);
+        f.x = lerp(s.sx, tx, q); f.y = lerp(s.sy, ty, q);
+        if (raw >= 1 && f === sc.suitor && state === 'waiting') bite();
+      } else {
+        if (!reduced) {
+          f.boost += (1 - f.boost) * Math.min(1, dt * .8);
+          f.x += f.dir * f.speed * f.boost * S * dt;
+          const edge = 60 * S;
+          if (f.x > W - edge && f.dir > 0) f.dir = -1;
+          else if (f.x < edge && f.dir < 0) f.dir = 1;
+          else if (sc.t > f.turnAt) { f.dir *= -1; f.turnAt = sc.t + rand(5, 14); }
+        }
+        f.y = laneY;
+      }
+      // turn around with a quick squash instead of an instant flip
+      f.face = reduced ? f.dir : f.face + (f.dir - f.face) * Math.min(1, dt * 6);
+      f.el.setAttribute('transform', `translate(${f.x.toFixed(1)} ${f.y.toFixed(1)}) scale(${(k * f.face).toFixed(3)} ${k.toFixed(3)}) translate(${-f.cx} ${-f.cy})`);
+      // curiosity marks: ? while it's thinking about your bait, ! once it commits
+      const mark = f === sc.suitor && f.seek ? '!' : (state === 'waiting' && f.interest > .15 ? '?' : '');
+      if (mark) {
+        f.mark.textContent = mark;
+        f.mark.setAttribute('font-size', (30 * S).toFixed(1));
+        f.mark.setAttribute('x', f.x.toFixed(1));
+        f.mark.setAttribute('y', (f.y - 48 * S + (mark === '!' && !reduced ? Math.sin(sc.t * 14) * 2 * S : 0)).toFixed(1));
+        f.mark.style.display = '';
+      } else f.mark.style.display = 'none';
+    }
+  }
+
+  /* ================= Sound (synthesized with Web Audio; no files) ================= */
+  const Sound = (() => {
+    const KEY = 'plenty-of-fish.muted';
+    let muted = false;
+    try { muted = window.localStorage.getItem(KEY) === '1'; } catch (e) { /* default on */ }
+    let ctx = null, master = null, noiseBuf = null, amb = null, lastSplash = 0;
+    const LEVEL = .8;
+
+    function ensure() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try { ctx = new AC(); } catch (e) { return null; }
+        master = ctx.createGain();
+        master.gain.value = muted ? 0 : LEVEL;
+        master.connect(ctx.destination);
+        const len = ctx.sampleRate * 2;
+        noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      return ctx;
+    }
+    const live = () => ctx && !muted && ctx.state !== 'closed';
+    function env(g, t, a, peak, dur) {
+      g.gain.setValueAtTime(.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + a);
+      g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    }
+    function tone(f, dur, o = {}) {
+      if (!live()) return;
+      const t = ctx.currentTime + (o.delay || 0);
+      const osc = ctx.createOscillator(); osc.type = o.type || 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+      const g = ctx.createGain(); env(g, t, o.attack || .008, o.gain || .1, dur);
+      let node = osc;
+      if (o.lp) { const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp; osc.connect(lp); node = lp; }
+      node.connect(g); g.connect(master);
+      osc.start(t); osc.stop(t + dur + .05);
+    }
+    function hiss(dur, o = {}) {
+      if (!live()) return;
+      const t = ctx.currentTime + (o.delay || 0);
+      const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+      const f = ctx.createBiquadFilter(); f.type = o.type || 'lowpass'; f.Q.value = o.q || .8;
+      f.frequency.setValueAtTime(o.f || 1000, t);
+      if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+      const g = ctx.createGain(); env(g, t, o.attack || .01, o.gain || .1, dur);
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start(t, Math.random() * 1.5); src.stop(t + dur + .05);
+    }
+    function ratchet(dur, start = 0, gap = .045, slow = 1) {
+      let t = start, n = 0;
+      while (t < start + dur && n < 40) { hiss(.02, { type: 'highpass', f: 2800, gain: .07, attack: .002, delay: t }); t += gap; gap *= slow; n++; }
+    }
+
+    function startAmbient() {
+      if (!ensure() || amb) return;
+      const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+      const g = ctx.createGain(); g.gain.value = 0;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = .13;
+      const depth = ctx.createGain(); depth.gain.value = .025;
+      lfo.connect(depth); depth.connect(g.gain);
+      src.connect(lp); lp.connect(g); g.connect(master);
+      src.start(); lfo.start();
+      g.gain.setTargetAtTime(.05, ctx.currentTime, .8);
+      amb = { src, lfo, g };
+    }
+    function stopAmbient() {
+      if (!amb || !ctx) return;
+      const a = amb; amb = null;
+      a.g.gain.cancelScheduledValues(ctx.currentTime);
+      a.g.gain.setTargetAtTime(0, ctx.currentTime, .35);
+      setTimeout(() => { try { a.src.stop(); a.lfo.stop(); } catch (e) { /* already stopped */ } }, 1600);
+    }
+
+    // little putt-putt outboard, louder the faster you sail
+    let motorNodes = null, lastTick = 0;
+    function motor(level) {
+      if (!ctx) return;
+      if (!motorNodes) {
+        if (level < .02) return;
+        const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 50;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 280;
+        const am = ctx.createGain(); am.gain.value = .5;
+        const lfo = ctx.createOscillator(); lfo.frequency.value = 9;
+        const lfoDepth = ctx.createGain(); lfoDepth.gain.value = .5;
+        const g = ctx.createGain(); g.gain.value = 0;
+        lfo.connect(lfoDepth); lfoDepth.connect(am.gain);
+        osc.connect(lp); lp.connect(am); am.connect(g); g.connect(master);
+        osc.start(); lfo.start();
+        motorNodes = { osc, lfo, g };
+      }
+      const t = ctx.currentTime;
+      motorNodes.g.gain.setTargetAtTime(level * .07, t, .08);
+      motorNodes.osc.frequency.setTargetAtTime(50 + level * 22, t, .1);
+      motorNodes.lfo.frequency.setTargetAtTime(8 + level * 6, t, .1);
+    }
+
+    return {
+      ensure, startAmbient, stopAmbient, motor,
+      tick() {
+        if (!live()) return;
+        const now = ctx.currentTime; if (now - lastTick < .07) return; lastTick = now;
+        hiss(.018, { type: 'highpass', f: 3200, gain: .06, attack: .002 });
+      },
+      notice() { tone(880, .08, { type: 'triangle', gain: .06 }); tone(1175, .12, { type: 'triangle', gain: .06, delay: .08 }); },
+      reject() { hiss(.35, { type: 'bandpass', f: 2200, to: 380, q: 1.4, gain: .18 }); tone(300, .28, { type: 'triangle', to: 120, gain: .1 }); },
+      get muted() { return muted; },
+      setMuted(m) {
+        muted = m;
+        try { window.localStorage.setItem(KEY, m ? '1' : '0'); } catch (e) { /* ignore */ }
+        if (ensure()) master.gain.setTargetAtTime(m ? 0 : LEVEL, ctx.currentTime, .05);
+      },
+      press() { tone(520, .09, { to: 360, gain: .12 }); },
+      click() { tone(660, .06, { type: 'triangle', gain: .06 }); },
+      cast() { hiss(.32, { type: 'bandpass', f: 700, to: 2600, q: 1.2, gain: .2 }); ratchet(.75, .2, .03, 1.09); },
+      plunk() { tone(300, .12, { to: 190, gain: .1 }); },
+      splash() {
+        if (!live()) return;
+        const now = ctx.currentTime; if (now - lastSplash < .15) return; lastSplash = now;
+        hiss(.42, { f: 1500, to: 240, gain: .26 }); tone(320, .2, { to: 90, gain: .07 });
+      },
+      bubble() { tone(rand(360, 520), .09, { to: rand(900, 1300), gain: .03 }); },
+      bite() {
+        tone(196, .14, { type: 'triangle', to: 150, gain: .17 });
+        tone(247, .18, { type: 'triangle', to: 180, gain: .15, delay: .13 });
+        hiss(.14, { f: 320, gain: .16 });
+      },
+      tug() { tone(110, .12, { to: 70, gain: .12 }); hiss(.08, { f: 400, gain: .06 }); },
+      reel() { ratchet(.95, 0, .032, 1); },
+      fanfare() {
+        [523, 659, 784, 1047].forEach((f, i) => tone(f, .24, { type: 'triangle', gain: .1, delay: i * .09 }));
+        tone(2093, .35, { gain: .025, delay: .38 });
+      },
+      // the Clingy Ex
+      rumble() { tone(46, 2.4, { attack: .7, gain: .22 }); tone(69, 2.2, { type: 'triangle', lp: 180, attack: .9, gain: .07 }); },
+      squelch() { hiss(.26, { type: 'bandpass', f: 520, to: 190, q: 3, gain: .13 }); tone(150, .22, { type: 'triangle', to: 85, gain: .08 }); },
+      sting() { tone(196, .42, { type: 'sawtooth', lp: 650, gain: .1 }); tone(185, .9, { type: 'sawtooth', lp: 560, gain: .1, delay: .44 }); },
+      creak() { tone(95, .5, { type: 'sawtooth', lp: 420, to: 70, gain: .05 }); },
+      glug() {
+        for (let i = 0; i < 7; i++) tone(rand(190, 300), .12, { to: rand(480, 820), gain: .06, delay: .1 + i * .2 });
+        tone(110, 1.5, { to: 38, gain: .16 });
+      },
+      ding() { tone(1319, .22, { gain: .07 }); tone(1760, .45, { gain: .06, delay: .13 }); },
+      duck(on) { if (amb && ctx) amb.g.gain.setTargetAtTime(on ? .004 : .05, ctx.currentTime, .3); },
+      womp() {
+        // the sad trombone of a repeat red flag
+        [392, 370, 349].forEach((f, i) => tone(f, .3, { type: 'sawtooth', lp: 900, gain: .06, delay: i * .32 }));
+        tone(330, .75, { type: 'sawtooth', lp: 800, to: 300, gain: .06, delay: .96 });
+      }
+    };
+  })();
+
+  function measure() {
+    const r = stage.getBoundingClientRect();
+    sc.W = Math.max(1, r.width); sc.H = Math.max(1, r.height);
+    sc.S = clamp(Math.min(sc.W / 1400, sc.H / 820) * 1.1, .58, 1.3);
+    const g = staticGeo();
+    stage.style.setProperty('--s', sc.S.toFixed(3));
+    stage.style.setProperty('--surface-game', g.gameSurf + 'px');
+    for (const svg of [boatLayer, rig]) svg.setAttribute('viewBox', `0 0 ${sc.W} ${sc.H}`);
+    // how far the boat may sail: keep the line clear of the stats panels on wide screens
+    const panels = document.querySelector('.hud-panels');
+    const maxTip = sc.W > 960 && panels ? panels.offsetLeft - 30 : sc.W - 30 * sc.S;
+    sc.floor = sc.W <= 960 && panels ? panels.offsetTop - 70 * sc.S : sc.H - 20 * sc.S;
+    if (panels) stage.style.setProperty('--prompt-bottom', Math.round(sc.H - panels.offsetTop + 18) + 'px');
+    sc.boatMin = 100 * sc.S;
+    sc.boatMax = Math.max(sc.boatMin, maxTip - 90 * sc.S);
+    sc.boatOff = clampBoat(sc.boatOff);
+    buildOcean();
+  }
+
+  function homeBoatX() { return sc.W / 2 - 76 * sc.S; }
+  function clampBoat(off) { const x = clamp(homeBoatX() + off, sc.boatMin, sc.boatMax); return x - homeBoatX(); }
+
+  function staticGeo() {
+    const { H, S } = sc;
+    const landSurf = H - Math.max(H * .066, 50);
+    const gameSurf = Math.max(H * .18, 118 * S + 44);
+    const span = Math.max(80 * S, (sc.floor || H) - gameSurf);   // fishable water: stops above the stats panels on phones
+    const depth = Math.max(span * sc.depthF, 70 * S);
+    return { landSurf, gameSurf, depth, span };
+  }
+
+  function buildOcean() {
+    const { W, H } = sc;
+    const h = H + 80;
+    ocean.style.height = h + 'px';
+    oceanSvg.setAttribute('width', W); oceanSvg.setAttribute('height', h);
+    oceanSvg.setAttribute('viewBox', `0 0 ${W} ${h}`);
+    const rnd = seeded(7);
+    let d = `M0 ${h} L0 3`;
+    for (let x = 0; x <= W + 7; x += 7) d += ` L${x.toFixed(1)} ${(1.3 * Math.sin(x * .19) + (rnd() - .5) * 3).toFixed(1)}`;
+    d += ` L${W} ${h} Z`;
+    waterPath.setAttribute('d', d);
+    // hand-drawn wave lines, positions taken from the reference screens
+    const spots = [[.03, .11, .045], [.13, .50, .10], [.59, .955, .045], [.615, .76, .18], [0, .15, .22], [.22, .31, .37], [.84, 1, .43], [0, .38, .62], [.63, 1, .7]];
+    waveLines.textContent = '';
+    for (const [a, b, y] of spots) {
+      const p = document.createElementNS(NS, 'path');
+      const yy = y * H;
+      let s = `M${(a * W).toFixed(1)} ${yy.toFixed(1)}`;
+      for (let x = a * W + 6; x <= b * W; x += 6) s += ` L${x.toFixed(1)} ${(yy + 1.5 * Math.sin(x * .9) + (rnd() - .5) * 1.6).toFixed(1)}`;
+      p.setAttribute('d', s);
+      waveLines.appendChild(p);
+    }
+  }
+
+  function buildMotes() {
+    const host = $('motes'); const rnd = seeded(21);
+    for (let i = 0; i < 9; i++) {
+      const m = document.createElement('span'); m.className = 'mote';
+      m.style.left = (rnd() * 96 + 2) + '%'; m.style.top = (12 + rnd() * 70) + '%';
+      m.style.animationDelay = (-rnd() * 14).toFixed(1) + 's';
+      host.appendChild(m);
+    }
+  }
+
+  function geo() {
+    const { W, S, t } = sc;
+    const { landSurf, gameSurf, depth } = staticGeo();
+    const surface = lerp(landSurf, gameSurf, sc.sea);
+    const motion = reduced ? 0 : sc.alive;
+    const bob = Math.sin(t * 1.6) * 2.4 * S * motion;
+    const boatX = lerp(W / 2, homeBoatX() + sc.boatOff, sc.sea);
+    const boatY = surface + bob + sc.sinkY * S;
+    const lean = -sc.vx / (260 * S) * 3.5;           // leans back when it accelerates
+    const rockDeg = sc.rock + lean + Math.sin(t * 1.1) * 1.3 * motion + sc.sinkRot + (reduced ? 0 : Math.sin(t * 7.5) * sc.shake);
+    const rr = rockDeg * Math.PI / 180, cos = Math.cos(rr), sin = Math.sin(rr);
+    const bx = 60 * S, by = -24 * S;
+    const baseX = boatX + bx * cos - by * sin, baseY = boatY + bx * sin + by * cos;
+    const ang = (sc.rodAng + sc.rodTilt + rockDeg) * Math.PI / 180;
+    const len = 76 * S * sc.rodExt;
+    const tipX = baseX + Math.sin(ang) * len, tipY = baseY - Math.cos(ang) * len;
+    const sub = clamp(sc.hookP, 0, 1);
+    const restY = gameSurf + depth;
+    let hookY = lerp(tipY + 20 * S, restY + (surface - gameSurf), sc.hookP) + sc.tug;
+    if (!reduced) hookY += Math.sin(t * 2.1) * 3 * S * sub;
+    // the hook trails behind when the boat moves, so the line bends with the motion
+    const sway = (reduced ? 0 : Math.sin(t * .9) * 5 * S * sub) - sc.vx * .16 * sub;
+    const hookX = tipX + sway;
+    return { surface, boatX, boatY, rockDeg, baseX, baseY, tipX, tipY, hookX, hookY, sway, restY, depth };
+  }
+
+  /* ================= Tweens & timers (cancellable) ================= */
+  const tweens = new Set();
+  function tween(target, to, dur, fn = ease.inOut) {
+    return new Promise(resolve => {
+      for (const o of tweens) if (o.target === target) for (const k in to) delete o.to[k];
+      if (reduced || dur <= 0) { Object.assign(target, to); resolve(); return; }
+      const from = {}; for (const k in to) from[k] = target[k];
+      tweens.add({ target, from, to: { ...to }, dur, fn, start: performance.now(), resolve });
+    });
+  }
+  function stepTweens(now) {
+    for (const tw of tweens) {
+      const p = clamp((now - tw.start) / tw.dur, 0, 1), e = tw.fn(p);
+      for (const k in tw.to) tw.target[k] = tw.from[k] + (tw.to[k] - tw.from[k]) * e;
+      if (p >= 1) { tweens.delete(tw); tw.resolve(); }
+    }
+  }
+  function cancelTweens() { for (const tw of tweens) tw.resolve(); tweens.clear(); }
+
+  const timers = new Set();
+  function later(fn, ms) { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); return id; }
+  function every(fn, ms) { const id = setInterval(fn, ms); timers.add(id); return id; }
+  function clearTimers() { for (const id of timers) { clearTimeout(id); clearInterval(id); } timers.clear(); }
+  const sleep = ms => new Promise(r => later(r, ms));
+  const beat = ms => sleep(reduced ? Math.min(ms, 120) : ms);
+
+  /* ================= State machine ================= */
+  // landing → casting → ready → waiting → bite → reeling → caught → inspecting → returning → ready …
+  // Any game state → leaving → landing (BACK)
+  let state = 'landing', token = 0, firstCast = true, catchSeq = 0, current = null, sessionCatches = 0;
+  const throwBtn = $('throwBtn'), hintEl = $('controlsHint');
+  const touchFirst = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  function setState(s) { state = s; stage.dataset.state = s; updateHint(); }
+  function updateHint() {
+    let html = '';
+    if (state === 'ready' || state === 'waiting') {
+      html = touchFirst
+        ? 'Tap near the fish you fancy to steer the hook there.'
+        : 'Sail with <kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd> · hook depth <kbd>W</kbd><kbd>S</kbd> or <kbd>↑</kbd><kbd>↓</kbd> · or click near a fish';
+    } else if (state === 'bite' && !touchFirst) {
+      html = '<kbd>Space</kbd> reel it in · <kbd>X</kbd> throw it back';
+    }
+    hintEl.innerHTML = html;
+    hintEl.hidden = !html;
+  }
+  function interrupt() { token++; clearTimers(); cancelTweens(); return token; }
+
+  function setCaption(text) {
+    caption.textContent = text;
+    caption.classList.remove('fresh'); void caption.offsetWidth; caption.classList.add('fresh');
+  }
+  function showButton(label, mode) {
+    reelLabel.textContent = label;
+    reelBtn.classList.toggle('is-urgent', mode === 'bite');
+    reelBtn.hidden = false;
+    throwBtn.hidden = mode !== 'bite';
+    for (const b of [reelBtn, throwBtn]) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    if (!logEl.hidden) return;
+    reelBtn.focus({ preventScroll: true });
+  }
+  function hideButton() {
+    if (document.activeElement === reelBtn || document.activeElement === throwBtn) stage.focus?.();
+    reelBtn.hidden = true;
+    throwBtn.hidden = true;
+  }
+
+  async function enterPool() {
+    if (state !== 'landing') return;
+    const tk = interrupt();
+    setState('casting');
+    Sound.ensure(); Sound.press();
+    cta.classList.add('is-pressed');
+    await sleep(reduced ? 0 : 150); if (tk !== token) return;
+    cta.classList.remove('is-pressed');
+    stage.dataset.view = 'game';
+    Sound.startAmbient();
+    setCaption('');
+    tween(sc, { alive: 1 }, 600, ease.out);
+    const rise = tween(sc, { sea: 1 }, firstCast ? 980 : 760, ease.inOut);
+    await beat(560); if (tk !== token) return;
+    await tween(sc, { rodExt: 1 }, 340, ease.back); if (tk !== token) return;
+    await rise; if (tk !== token) return;
+    await castHook(tk, firstCast ? 1100 : 750); if (tk !== token) return;
+    if (Ex.due()) { firstCast = false; Ex.run(); return; }
+    toReady(firstCast ? say.firstReady() : say.ready());
+    firstCast = false;
+  }
+
+  async function castHook(tk, dur) {
+    await tween(sc, { rodTilt: -26 }, 220, ease.out); if (tk !== token) return;
+    Sound.cast();
+    tween(sc, { rodTilt: 9 }, 190, ease.in).then(() => { if (tk === token) tween(sc, { rodTilt: 0 }, 380, ease.out); });
+    await tween(sc, { hookP: 1 }, dur, ease.softBack);
+  }
+
+  function toReady(msg) {
+    setState('ready');
+    setCaption(msg);
+    showButton('CLICK TO REEL IN A CATCH', 'ready');
+  }
+
+  // The bait goes live. No fish is chosen here: whoever you park the hook beside notices it (see stepSuitors).
+  function startFishing(msg) {
+    if (state !== 'ready') return;
+    const tk = interrupt();
+    setState('waiting');
+    hideButton();
+    Sound.plunk();
+    sc.waitT = 0; sc.suitor = null;
+    clearSeeks();
+    for (const f of school) f.interest = 0;
+    setCaption(msg || say.waiting());
+    every(() => { if (state === 'waiting' && !sc.suitor) setCaption(say.waiting()); }, 2600);
+    tween(sc, { tug: 7 * sc.S }, 160, ease.out).then(() => { if (tk === token) tween(sc, { tug: 0 }, 420, ease.back); });
+  }
+
+  function clearSeeks() { for (const f of school) f.seek = null; sc.suitor = null; }
+
+  function hookFish(f) {
+    const p = current.persona;
+    sc.fish = p; sc.fishSw = f || null;
+    fishUse.setAttribute('href', '#' + p.fish);
+    sc.fishMode = 'hook'; sc.fishScale = 1; sc.hangT = 0; sc.wiggle = .6;
+    sc.fishFace = f ? f.dir : 1;
+    if (f) { f.mode = 'hooked'; f.seek = null; }
+  }
+
+  // Put a released (or abandoned) fish back into the school where it is.
+  function returnToSchool() {
+    const f = sc.fishSw, p = sc.fish;
+    if (f && p) {
+      const g = geo(), span = staticGeo().span, k = f.size * sc.S, face = sc.fishFace;
+      const m = sc.fishMode === 'free' ? { x: sc.fx, y: sc.fy } : fishMouth(g);
+      f.x = clamp(m.x - (p.anchor[0] - f.cx) * k * face, 0, sc.W);
+      f.lane = clamp((m.y - (p.anchor[1] - f.cy) * k - g.surface) / span, .1, .9);
+      f.face = face; f.dir = Math.random() < .5 ? -1 : 1;
+      f.mode = 'swim'; f.seek = null; f.turnAt = sc.t + rand(4, 10); f.ignoreUntil = sc.t + 5;
+    }
+    sc.fish = null; sc.fishSw = null;
+  }
+
+  function bite() {
+    if (state !== 'waiting' || !sc.suitor) return;
+    const tk = interrupt();
+    setState('bite');
+    sc.aim = null;
+    const f = sc.suitor; sc.suitor = null;
+    rollNotice(f);
+    hookFish(f);
+    Sound.bite();
+    setCaption(say.bite());
+    showButton('REEL IT IN!', 'bite');
+    tugOnce(tk);
+    every(() => { if (state === 'bite') { tugOnce(tk); Sound.tug(); } }, 1350);
+  }
+
+  function tugOnce(tk) {
+    const g = geo(), S = sc.S;
+    ripple(g.hookX, g.surface, 1);
+    later(() => { if (tk === token) ripple(g.hookX + 10 * S, g.surface, .8); }, 140);
+    for (let i = 0; i < 3; i++) bubble(g.hookX + rand(-8, 8) * S, g.hookY + 20 * S);
+    tween(sc, { tug: 24 * S, rodTilt: 11, rock: 3.5 }, 110, ease.out)
+      .then(() => { if (tk === token && state === 'bite') tween(sc, { tug: 7 * S, rodTilt: 3, rock: 0 }, 420, ease.back); });
+  }
+
+  // Not your type: unhook it before you even see the profile.
+  async function throwBack() {
+    if (state !== 'bite') return;
+    const tk = interrupt();
+    setState('rejecting');
+    hideButton();
+    setCaption(say.reject());
+    Sound.reject();
+    const f = sc.fishSw, face = sc.fishFace, g = geo();
+    returnToSchool();
+    if (f) { f.dir = -face; f.face = -face; f.boost = 4.5; f.ignoreUntil = sc.t + 7; f.turnAt = sc.t + rand(5, 9); }
+    for (let i = 0; i < 4; i++) bubble(g.hookX + rand(-10, 10) * sc.S, g.hookY + 24 * sc.S);
+    ripple(g.hookX, g.surface, .9);
+    tween(sc, { tug: -10 * sc.S, rodTilt: -5, rock: 0, wiggle: 0 }, 160, ease.out)
+      .then(() => { if (tk === token) tween(sc, { tug: 0, rodTilt: 0 }, 420, ease.back); });
+    await beat(650); if (tk !== token) return;
+    setState('ready');
+    startFishing(say.waiting());
+  }
+
+  async function reel() {
+    if (state !== 'bite') return;
+    const tk = interrupt();
+    setState('reeling');
+    hideButton();
+    setCaption(say.reel());
+    if (!sc.fish) hookFish(school.find(f => f.persona === current.persona));
+    sc.wiggle = 1;
+    Sound.reel();
+    tween(sc, { hangT: 1 }, 380, ease.out);
+    tween(sc, { tug: 0, rodTilt: -8, rock: -2 }, 220, ease.out);
+    const up = tween(sc, { hookP: 0 }, 900, ease.inOut);
+    await beat(500); if (tk !== token) return;
+    tween(sc, { rodAng: 50, rodExt: 1.35, rodTilt: 0, rock: 0 }, 560, ease.back);
+    await up; if (tk !== token) return;
+
+    setState('caught');
+    recordCatch(current);
+    if (current.isNew) Sound.fanfare(); else Sound.womp();
+    tween(sc, { fishScale: 1.75, wiggle: .25 }, 520, ease.back);
+    setCaption(say.reveal());
+    await beat(700); if (tk !== token) return;
+    openCard(current);
+  }
+
+  function recordCatch(c) {
+    if (!c || c.recorded) return;    // one catch, one record, regardless of clicks or rerenders
+    c.recorded = true;
+    const id = c.persona.id;
+    const entry = log.fish[id] || { count: 0, firstCaughtAt: Date.now() };
+    c.isNew = entry.count === 0;
+    entry.count += 1;
+    log.fish[id] = entry;
+    log.total += 1;
+    log.latest = id;
+    sessionCatches += 1;            // this visit only; the Fish Log keeps the lifetime total
+    saveLog();
+    renderHud(true);
+    renderLog();
+  }
+
+  async function backToFishing() {
+    if (state !== 'inspecting' && state !== 'caught') return;
+    const tk = interrupt();
+    setState('returning');
+    closeCard();
+    setCaption(say.release());
+    Sound.click();
+    const g = geo(), m = fishMouth(g);
+    if (sc.fish) {
+      // thrown back: it drops into the water, levels out and rejoins the school
+      sc.fishMode = 'free'; sc.fx = m.x; sc.fy = m.y; sc.frot = sc.fishFace * sc.fish.hang * sc.hangT;
+      tween(sc, { fy: g.surface + 110 * sc.S, frot: 0, fishScale: 1 }, 700, ease.in)
+        .then(() => { if (tk === token) returnToSchool(); });
+    }
+    tween(sc, { rodAng: 22, rodExt: 1, wiggle: 0 }, 420, ease.out);
+    await beat(320); if (tk !== token) return;
+    if (Ex.due()) {
+      // the catch is finished and you're back on the water... which is exactly when they show up
+      await beat(500); if (tk !== token) return;
+      if (sc.fish) returnToSchool();
+      Ex.run();
+      return;
+    }
+    await castHook(tk, 650); if (tk !== token) return;
+    if (sc.fish) returnToSchool();
+    toReady(say.ready());
+  }
+
+  async function goLanding() {
+    if (state === 'landing' || state === 'leaving') return;
+    const tk = interrupt();
+    setState('leaving');
+    closeCard(); hideButton(); setCaption('');
+    stage.dataset.view = 'landing';
+    clearSeeks();
+    if (sc.fish) returnToSchool();
+    sc.aim = null;
+    Sound.click(); Sound.stopAmbient();
+    tween(sc, { rodAng: 22, rodTilt: 0, rock: 0, tug: 0, wiggle: 0 }, 300, ease.out);
+    await tween(sc, { hookP: 0 }, 420, ease.inOut); if (tk !== token) return;
+    tween(sc, { rodExt: 0 }, 260, ease.in);
+    tween(sc, { alive: 0 }, 800, ease.inOut);
+    await tween(sc, { sea: 0 }, 820, ease.inOut); if (tk !== token) return;
+    setState('landing');
+    cta.focus({ preventScroll: true });
+  }
+
+  function primaryAction() {
+    if (!logEl.hidden) return;
+    if (state === 'ready') startFishing();
+    else if (state === 'bite') reel();
+  }
+
+  /* ================= Steering: keyboard, plus click/tap to aim ================= */
+  const keys = { left: false, right: false, up: false, down: false };
+  const KEYMAP = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right',
+    ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down' };
+  const canSteer = () => (state === 'ready' || state === 'waiting') && logEl.hidden;
+
+  function aimAt(clientX, clientY) {
+    const r = stage.getBoundingClientRect();
+    sc.aim = { x: clientX - r.left, y: clientY - r.top };
+  }
+
+  function stepControls(dt) {
+    const S = sc.S, maxV = 260 * S;
+    let ax = 0, ay = 0;
+    if (canSteer()) {
+      ax = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+      ay = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+      if (ax || ay) sc.aim = null;
+      else if (sc.aim) {
+        const g = geo();
+        const dx = sc.aim.x - g.tipX, dy = sc.aim.y - g.restY;
+        ax = Math.abs(dx) > 8 * S ? Math.sign(dx) * Math.min(1, Math.abs(dx) / (90 * S)) : 0;
+        ay = Math.abs(dy) > 8 * S ? Math.sign(dy) * Math.min(1, Math.abs(dy) / (70 * S)) : 0;
+        const stuck = (ax > 0 && homeBoatX() + sc.boatOff >= sc.boatMax) || (ax < 0 && homeBoatX() + sc.boatOff <= sc.boatMin);
+        if (stuck) ax = 0;
+        if (!ax && !ay) sc.aim = null;
+      }
+    } else sc.aim = null;
+    if (reduced) sc.vx = ax * maxV;
+    else sc.vx += (ax * maxV - sc.vx) * Math.min(1, dt * (ax ? 3.2 : 2.6));
+    if (Math.abs(sc.vx) < .5) sc.vx = 0;
+    const want = sc.boatOff + sc.vx * dt;
+    sc.boatOff = clampBoat(want);
+    if (Math.abs(sc.boatOff - want) > .01) sc.vx = 0;   // bumped the edge
+    if (ay && sc.hookP > .95) {
+      const before = sc.depthF;
+      sc.depthF = clamp(sc.depthF + ay * .42 * dt, .08, .9);
+      if (sc.depthF !== before) Sound.tick();
+    }
+    Sound.motor(Math.min(1, Math.abs(sc.vx) / maxV));
+  }
+
+  /* ================= Persona card ================= */
+  function openCard(c) {
+    const p = c.persona, entry = log.fish[p.id];
+    setState('inspecting');
+    $('cardFishUse').setAttribute('href', '#' + p.fish);
+    $('cardMeta').textContent = `${p.species} · ${p.label} · ${p.rarity}`;
+    $('cardName').textContent = p.name.toUpperCase();
+    $('cardBlurb').textContent = `“${p.blurb}”`;
+    $('cardFlag').textContent = p.redFlag;
+    $('cardCatch').textContent = p.catchphrase;
+    $('cardComment').textContent = `Ocean commentary: ${p.commentary}`;
+    $('cardStamp').innerHTML = c.isNew ? 'new<br>catch!' : `caught<br>×${entry ? entry.count : 1}`;
+    card.hidden = false;
+    $('againBtn').focus({ preventScroll: true });
+  }
+  function closeCard() { card.hidden = true; }
+
+  /* ================= HUD & Fish Log ================= */
+  function renderHud(bump) {
+    const num = $('countNum');
+    num.textContent = String(log.total);
+    if (bump && !reduced) { num.classList.remove('bump'); void num.offsetWidth; num.classList.add('bump'); }
+    const p = log.latest && BY_ID[log.latest];
+    $('latestLabel').textContent = p ? p.species : 'Nothing yet';
+    $('latestMeta').textContent = p ? `Rarity - ${p.rarity.toLowerCase()}` : 'Standards: suspiciously high';
+    $('latestName').disabled = !p;
+    $('latestInfo').hidden = !p;
+    $('latestName').setAttribute('aria-label', p ? `${p.species}, rarity ${p.rarity}. Open in Fish Log` : 'No catches yet');
+  }
+
+  function renderLog(highlightId) {
+    const found = PERSONAS.filter(p => log.fish[p.id]).length;
+    $('logStats').textContent = `${found} of ${PERSONAS.length} red flags documented · ${log.total} total ${log.total === 1 ? 'catch' : 'catches'}`;
+    const grid = $('logGrid');
+    grid.textContent = '';
+    for (const p of PERSONAS) {
+      const e = log.fish[p.id];
+      const li = document.createElement('li');
+      li.className = 'log-card' + (e ? '' : ' locked') + (highlightId === p.id ? ' is-highlight' : '');
+      li.id = 'log-' + p.id;
+      const art = document.createElementNS(NS, 'svg');
+      art.setAttribute('viewBox', '0 0 200 160'); art.setAttribute('aria-hidden', 'true');
+      const use = document.createElementNS(NS, 'use'); use.setAttribute('href', '#' + p.fish);
+      if (!e) use.setAttribute('filter', 'url(#silhouette)');
+      art.appendChild(use); li.appendChild(art);
+      const add = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; el.textContent = text; li.appendChild(el); return el; };
+      if (e) {
+        add('p', 'meta', `${p.species} · ${p.rarity}`);
+        add('h3', '', p.name);
+        add('p', 'count', `${p.label} · caught ×${e.count}`);
+        const lf = add('p', 'lf', ''); const b = document.createElement('b'); b.textContent = 'RED FLAG'; lf.append(b, p.redFlag);
+        add('p', 'lc', `“${p.catchphrase}”`);
+      } else {
+        add('p', 'meta', `Undiscovered · ${p.rarity}`);
+        add('h3', '', '???');
+        add('p', 'hint', `Hint: ${p.hint}`);
+      }
+      grid.appendChild(li);
+    }
+  }
+
+  let logReturn = null, logOpener = null;
+  function openLog(highlightId, opener, onClose) {
+    renderLog(highlightId);
+    logOpener = opener || document.activeElement;
+    logReturn = onClose || null;
+    logEl.hidden = false;
+    logEl.scrollTop = 0;
+    Sound.click();
+    disarmReset();
+    $('logBack').focus({ preventScroll: true });
+    if (highlightId) requestAnimationFrame(() => {
+      const el = $('log-' + highlightId);
+      if (el) el.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+    });
+  }
+  function closeLog() {
+    if (logEl.hidden) return;
+    logEl.hidden = true;
+    const fn = logReturn; logReturn = null;
+    if (fn) fn();
+    else if (state === 'ready' && !reelBtn.hidden) reelBtn.focus({ preventScroll: true });
+    else if (logOpener && document.contains(logOpener) && !logOpener.disabled) logOpener.focus({ preventScroll: true });
+  }
+
+  let resetArmed = false;
+  function disarmReset() { resetArmed = false; const b = $('resetBtn'); b.classList.remove('is-armed'); b.textContent = 'Throw them all back (clear log)'; }
+  $('resetBtn').addEventListener('click', () => {
+    const b = $('resetBtn');
+    if (!resetArmed) { resetArmed = true; b.classList.add('is-armed'); b.textContent = 'Sure? Tap again to forget them all'; return; }
+    log = emptyLog(); saveLog(); renderHud(false); renderLog(); disarmReset();
+    b.textContent = 'Log cleared. Fresh start, same patterns.';
+  });
+
+  /* ================= The Clingy Ex (easter egg) =================
+     After the third catch of a visit, a giant octopus drags the boat under, then texts "u up?".
+     Phases: still → tentacle → wrap → reveal → sinking → silence → bubble → recovery.
+     Everything is drawn in the boat's own frame (in the boat layer, behind the opaque ocean),
+     so tentacles stay attached when it rocks and sinks, and the water hides whatever goes under. */
+  const Ex = (() => {
+    const back = $('octoBack'), front = $('octoFront');
+    const capEl = $('exCaption'), endEl = $('exEnd'), uupEl = $('uup'), recEl = $('exRecovery');
+    let done = false, active = false, awaitingRecovery = false;
+    const head = { p: 0 };
+
+    // Each tentacle: a cubic centreline (boat-local units, y down, waterline ≈ 0) in a "reach" pose and a "wrap" pose.
+    const DEFS = [
+      { id: 't1', layer: 'front', w0: 24, entry: 122, ph: 0.0,
+        reach: [[120, 150], [135, 40], [150, -95], [104, -98]], wrap: [[120, 150], [116, 30], [122, -78], [56, -30]] },
+      { id: 't2', layer: 'back', w0: 26, entry: -128, ph: 1.3,
+        reach: [[-130, 150], [-150, 40], [-162, -95], [-112, -104]], wrap: [[-130, 150], [-124, 20], [-122, -80], [-54, -36]] },
+      { id: 't3', layer: 'front', w0: 22, entry: 58, ph: 2.1,
+        reach: [[30, 160], [72, 10], [84, -140], [30, -132]], wrap: [[30, 160], [64, 0], [72, -112], [16, -62]] },
+      { id: 't4', layer: 'front', w0: 22, entry: -88, ph: 3.4,
+        reach: [[-40, 160], [-112, 30], [-94, -84], [-42, -74]], wrap: [[-40, 160], [-104, 10], [-64, -62], [-6, -14]] },
+      { id: 't5', layer: 'back', w0: 30, entry: -236, ph: 4.2,
+        reach: [[-220, 160], [-262, -60], [-172, -205], [-120, -150]], wrap: [[-220, 160], [-242, -40], [-142, -176], [-96, -112]] },
+      { id: 't6', layer: 'back', w0: 30, entry: 246, ph: 5.0,
+        reach: [[230, 160], [272, -60], [182, -212], [130, -160]], wrap: [[230, 160], [252, -40], [152, -184], [102, -122]] }
+    ];
+    const COLORS = { back: '#4B50D6', front: '#7276EE' };
+    const tents = [];
+
+    function build() {
+      // the head peeks up behind the bow: heavy-lidded, blushing, devoted
+      const NSs = NS;
+      const h = document.createElementNS(NSs, 'g');
+      h.innerHTML = `
+        <ellipse cx="0" cy="0" rx="124" ry="118" fill="#5D61E8"/>
+        <circle cx="-62" cy="-30" r="12" fill="#7F83F0"/><circle cx="58" cy="-20" r="9" fill="#7F83F0"/><circle cx="-20" cy="-92" r="8" fill="#7F83F0"/>
+        <g>
+          <ellipse cx="-40" cy="-70" rx="15" ry="12" fill="#F4ECDF"/><circle cx="-35" cy="-68" r="6.5" fill="#14167A"/>
+          <path d="M-56 -72 Q-40 -86 -24 -72 Z" fill="#5D61E8"/><path d="M-56 -72 Q-40 -76 -24 -72" fill="none" stroke="#14167A" stroke-width="2.6" stroke-linecap="round"/>
+          <ellipse cx="12" cy="-72" rx="15" ry="12" fill="#F4ECDF"/><circle cx="17" cy="-70" r="6.5" fill="#14167A"/>
+          <path d="M-4 -74 Q12 -88 28 -74 Z" fill="#5D61E8"/><path d="M-4 -74 Q12 -78 28 -74" fill="none" stroke="#14167A" stroke-width="2.6" stroke-linecap="round"/>
+          <ellipse cx="-58" cy="-50" rx="11" ry="5" fill="#F08AA0" opacity=".85"/><ellipse cx="32" cy="-52" rx="11" ry="5" fill="#F08AA0" opacity=".85"/>
+        </g>`;
+      back.appendChild(h);
+      head.el = h;
+      for (const d of DEFS) {
+        const g = document.createElementNS(NSs, 'g');
+        const body = document.createElementNS(NSs, 'path');
+        body.setAttribute('fill', COLORS[d.layer]);
+        const dots = document.createElementNS(NSs, 'path');
+        dots.setAttribute('fill', '#C6C8FC');
+        g.append(body, dots);
+        (d.layer === 'back' ? back : front).appendChild(g);
+        tents.push({ ...d, body, dots, e: 0, w: 0, squeeze: 0 });
+      }
+    }
+
+    const bez = (p, t) => {
+      const u = 1 - t;
+      return [u * u * u * p[0][0] + 3 * u * u * t * p[1][0] + 3 * u * t * t * p[2][0] + t * t * t * p[3][0],
+              u * u * u * p[0][1] + 3 * u * u * t * p[1][1] + 3 * u * t * t * p[2][1] + t * t * t * p[3][1]];
+    };
+
+    // One tentacle as a filled, tapering shape along its centreline, drawn only up to how far it has emerged.
+    function drawTentacle(T, ky) {
+      if (T.e <= .002) { T.body.setAttribute('d', ''); T.dots.setAttribute('d', ''); return; }
+      const wig = reduced ? 0 : (1 - Math.min(1, T.w) * .75);
+      const ctrl = T.reach.map((pt, i) => {
+        const q = T.wrap[i], k = Math.min(1, T.w);
+        let x = lerp(pt[0], q[0], k), y = lerp(pt[1], q[1], k);
+        if (i === 1 || i === 2) { x += Math.sin(sc.t * 2.2 + T.ph + i) * 9 * wig; y += Math.cos(sc.t * 1.7 + T.ph) * 5 * wig; }
+        if (i === 3 && T.squeeze) { x = lerp(x, T.wrap[0][0] * .3, T.squeeze * .08); y += T.squeeze * 6; }
+        if (y < -60) y = -60 + (y + 60) * ky;   // tall arcs fold down to fit the sky on short screens
+        return [x, y];
+      });
+      const N = 26, L = [], R = [], pts = [];
+      for (let i = 0; i <= N; i++) {
+        const t = (i / N) * T.e;
+        const a = bez(ctrl, t), b = bez(ctrl, Math.min(1, t + .01));
+        let dx = b[0] - a[0], dy = b[1] - a[1];
+        const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+        const half = T.w0 * (1 - .84 * (i / N)) / 2 * (1 - T.squeeze * .12);
+        L.push([a[0] - dy * half, a[1] + dx * half]);
+        R.push([a[0] + dy * half, a[1] - dx * half]);
+        pts.push({ a, nx: -dy, ny: dx, half });
+      }
+      const tip = pts[N];
+      let d = 'M' + L.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L');
+      d += ` Q${(tip.a[0] + (tip.a[0] - pts[N - 1].a[0]) * 1.4).toFixed(1)} ${(tip.a[1] + (tip.a[1] - pts[N - 1].a[1]) * 1.4).toFixed(1)} `;
+      d += R.reverse().map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' L') + ' Z';
+      T.body.setAttribute('d', d);
+      let dd = '';
+      for (const i of [5, 9, 13, 17, 21]) {
+        if (i > N - 2) break;
+        const q = pts[i], r = Math.max(2, q.half * .32);
+        const cx = q.a[0] + q.nx * q.half * .45, cy = q.a[1] + q.ny * q.half * .45;
+        dd += `M${(cx - r).toFixed(1)} ${cy.toFixed(1)} a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(2 * r).toFixed(1)} 0 a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(-2 * r).toFixed(1)} 0 `;
+      }
+      T.dots.setAttribute('d', dd);
+    }
+
+    function render(g) {
+      const on = active;
+      back.style.display = front.style.display = on ? '' : 'none';
+      if (!uupEl.hidden) placeBubble(g);
+      if (!on) return;
+      const tf = `translate(${g.boatX.toFixed(2)} ${g.boatY.toFixed(2)}) rotate(${g.rockDeg.toFixed(2)}) scale(${sc.S.toFixed(3)})`;
+      back.setAttribute('transform', tf);
+      front.setAttribute('transform', tf);
+      head.el.setAttribute('transform', `translate(-158 ${lerp(250, 40, head.p).toFixed(1)})`);
+      const ky = clamp((g.surface - 34 - 60 * sc.S) / (sc.S * 150), .3, 1);
+      for (const T of tents) drawTentacle(T, ky);
+    }
+
+    // a ripple where something breaks the surface, in screen space
+    function rippleAt(localX) {
+      const g = geo(), rr = g.rockDeg * Math.PI / 180;
+      ripple(g.boatX + sc.S * localX * Math.cos(rr), g.surface, .8);
+    }
+
+    function placeBubble(g) {
+      const w = uupEl.offsetWidth || 60, h = uupEl.offsetHeight || 30;
+      const x = clamp(g.boatX + 92 * sc.S, 12, sc.W - w - 12);
+      const y = Math.max(8, g.surface - h - 26 * sc.S);
+      uupEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    }
+
+    const hold = ms => sleep(ms);   // reading pauses: kept the same with reduced motion
+
+    async function run() {
+      if (done) return;
+      done = true;
+      const tk = interrupt();
+      active = false;
+      awaitingRecovery = false;
+      setState('clingy');
+      hideButton(); setCaption('');
+      clearSeeks();
+      stage.dataset.ex = 'still';
+
+      // Phase A — the ocean gets suspicious. Line comes in, waves go still, the water starts to ripple.
+      tween(sc, { hookP: 0 }, 500, ease.inOut).then(() => { if (tk === token) tween(sc, { rodExt: 0 }, 300, ease.in); });
+      for (const f of school) if (f.mode === 'swim') { f.boost = 3.5; }
+      Sound.duck(true); Sound.rumble();
+      let g = geo();
+      await beat(900); if (tk !== token) return;
+      rippleAt(-40); later(() => rippleAt(60), 220); later(() => rippleAt(0), 440);
+      await beat(700); if (tk !== token) return;
+
+      // Phase B — one tentacle. Rises, curls over the edge, tests its grip, then commits.
+      stage.dataset.ex = 'tentacle';
+      active = true;
+      const [t1, t2, t3, t4, t5, t6] = tents;
+      rippleAt(t1.entry);
+      await tween(t1, { e: 1 }, 950, ease.out); if (tk !== token) return;
+      await beat(260); if (tk !== token) return;
+      await tween(t1, { w: .45 }, 380, ease.inOut); if (tk !== token) return;
+      await beat(240); if (tk !== token) return;
+      Sound.squelch();
+      await tween(t1, { w: 1 }, 460, ease.back); if (tk !== token) return;
+      tween(sc, { rock: -3 }, 160, ease.out).then(() => { if (tk === token) tween(sc, { rock: 0 }, 420, ease.back); });
+
+      // Phase C — the rest join in, one after another, and the boat starts to panic.
+      stage.dataset.ex = 'wrap';
+      const order = [t2, t3, t4, t5, t6];
+      for (let i = 0; i < order.length; i++) {
+        const T = order[i];
+        rippleAt(T.entry);
+        tween(T, { e: 1 }, 620, ease.out).then(() => {
+          if (tk !== token) return;
+          Sound.squelch();
+          tween(T, { w: 1 }, 420, ease.back);
+        });
+        tween(sc, { shake: Math.min(3.2, .7 + i * .6) }, 300, ease.out);
+        if (i === 2) tween(head, { p: 1 }, 1100, ease.out);
+        if (i % 2) Sound.creak();
+        await beat(380); if (tk !== token) return;
+      }
+      await beat(700); if (tk !== token) return;
+
+      // Phase D — the punchline, clear of the boat; then a beat to let it land.
+      stage.dataset.ex = 'reveal';
+      capEl.classList.remove('out'); capEl.hidden = false;
+      Sound.sting();
+      await hold(1900); if (tk !== token) return;
+
+      // Phase E — tighten, tilt, and drag the whole boat under. The ocean layer hides what goes below.
+      stage.dataset.ex = 'sinking';
+      for (const T of tents) tween(T, { squeeze: 1 }, 300, ease.out);
+      tween(sc, { sinkRot: -9, shake: 1.2 }, 420, ease.out);
+      await beat(420); if (tk !== token) return;
+      capEl.classList.add('out');
+      later(() => { if (tk === token) capEl.hidden = true; }, 420);
+      Sound.glug();
+      g = geo();
+      const bx = g.boatX;
+      later(() => { if (tk === token) { splash(bx, geo().surface); rippleAt(-60); rippleAt(70); } }, reduced ? 0 : 700);
+      await tween(sc, { sinkY: 30, sinkRot: -15, shake: 0 }, 1500, ease.inOut); if (tk !== token) return;
+      ripple(bx, geo().surface, 1.5);
+      for (let i = 0; i < 6; i++) later(() => { if (tk === token) bubble(bx + rand(-50, 50) * sc.S, geo().surface + rand(30, 90) * sc.S); }, i * 140);
+
+      // Phase F — awkward silence. Half a boat, an octopus that won't let go, and nothing else.
+      stage.dataset.ex = 'silence';
+      await hold(950); if (tk !== token) return;
+
+      // Phase G — the ex texts. A tiny bubble pops up right beside the wreck.
+      stage.dataset.ex = 'bubble';
+      uupEl.hidden = false;
+      placeBubble(geo());
+      Sound.ding();
+      await hold(reduced ? 900 : 1600); if (tk !== token) return;
+
+      // Phase H — recovery.
+      stage.dataset.ex = 'recovery';
+      endEl.hidden = false; recEl.hidden = false;
+      awaitingRecovery = true;
+      if (logEl.hidden) $('exAgain').focus({ preventScroll: true });
+    }
+
+    async function recover() {
+      if (state !== 'clingy' || !awaitingRecovery) return;
+      awaitingRecovery = false;
+      const tk = interrupt();
+      Sound.click(); Sound.duck(false);
+      endEl.hidden = true; uupEl.hidden = true; recEl.hidden = true; capEl.hidden = true;
+      delete stage.dataset.ex;
+      setState('returning');
+      setCaption(say.exBack());
+      // it finally lets go: tentacles slide back under, then the boat bobs up, a little worse for wear
+      for (const T of tents) tween(T, { w: 0, squeeze: 0 }, 300, ease.out).then(() => { if (tk === token) tween(T, { e: 0 }, 550, ease.in); });
+      tween(head, { p: 0 }, 700, ease.in);
+      await beat(850); if (tk !== token) return;
+      active = false;
+      sc.shake = 0; sc.rock = 0;
+      later(() => { if (tk === token) splash(geo().boatX, geo().surface); }, reduced ? 0 : 200);
+      await tween(sc, { sinkY: 0, sinkRot: 0 }, 900, ease.softBack); if (tk !== token) return;
+      sc.rodAng = 22; sc.rodTilt = 0;
+      await tween(sc, { rodExt: 1 }, 340, ease.back); if (tk !== token) return;
+      await castHook(tk, 750); if (tk !== token) return;
+      toReady(say.ready());
+    }
+
+    build();
+    return { due: () => !done && sessionCatches >= 3, run, recover, render, get done() { return done; } };
+  })();
+
+  /* ================= About page ================= */
+  const aboutEl = $('about');
+  let aboutOpener = null;
+  function openAbout(opener) {
+    if (state !== 'landing') return;
+    aboutOpener = opener || null;
+    aboutEl.hidden = false;
+    aboutEl.scrollTop = 0;
+    Sound.click();
+    $('aboutBack').focus({ preventScroll: true });
+    Notes.start();
+    watchWiggles();
+    fitHi();
+  }
+
+  // Desktop: the greeting sits on one line, sized to fill the column. Phones: it wraps at a readable size.
+  function fitHi() {
+    const el = $('aboutTitle');
+    if (!el || aboutEl.hidden) return;
+    el.style.fontSize = '';
+    const avail = el.parentElement.clientWidth;
+    if (avail < 640) { el.classList.remove('one-line'); return; }
+    el.classList.add('one-line');
+    el.style.fontSize = '100px';
+    const w = el.scrollWidth;
+    if (w > 0) el.style.fontSize = Math.min(150, Math.floor(100 * avail / w * 0.98)) + 'px';
+  }
+  window.addEventListener('resize', fitHi);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitHi);
+
+  // Each wiggly underline draws itself the first time its passage scrolls well into view.
+  let wiggleObserver = null;
+  function watchWiggles() {
+    if (wiggleObserver) return;
+    const els = aboutEl.querySelectorAll('.wiggle');
+    if (!('IntersectionObserver' in window)) { els.forEach(el => el.classList.add('is-drawn')); return; }
+    wiggleObserver = new IntersectionObserver(entries => {
+      for (const en of entries) if (en.isIntersecting) { en.target.classList.add('is-drawn'); wiggleObserver.unobserve(en.target); }
+    }, { root: aboutEl, rootMargin: '0px 0px -30% 0px', threshold: 0 });
+    els.forEach(el => wiggleObserver.observe(el));
+  }
+  function closeAbout() {
+    if (aboutEl.hidden) return;
+    aboutEl.hidden = true;
+    Sound.click();
+    if (aboutOpener && document.contains(aboutOpener)) aboutOpener.focus({ preventScroll: true });
+  }
+
+  /* ================= Sticky-note board =================
+     Shared through the artifact's db: one document per note in the "notes" collection,
+     each carrying its author's id so people can remove their own (the owner can remove any).
+     Without the db (a plain file, or a viewer that can't run it) notes stay on this device. */
+  const Notes = (() => {
+    const MAX = 220, LOCAL_KEY = 'plenty-of-fish.notes.local';
+    const COLORS = ['cream', 'lilac', 'coral', 'mint'];
+    let mode = 'loading', db = null, uid = null, owner = false, readOnly = false, started = false, busy = false;
+    // On a regular website (e.g. Vercel) notes go through /api/notes. Each note's delete token stays on the author's device.
+    const API = '/api/notes', TOKENS_KEY = 'plenty-of-fish.notes.tokens';
+    let myTokens = {};
+    try { myTokens = JSON.parse(localStorage.getItem(TOKENS_KEY) || '{}') || {}; } catch (e) { myTokens = {}; }
+    const saveTokens = () => { try { localStorage.setItem(TOKENS_KEY, JSON.stringify(myTokens)); } catch (e) { /* ignore */ } };
+    // Site owner: open the site once with ?admin=YOUR_KEY to get a remove button on every note.
+    const adminKey = (() => {
+      try {
+        const u = new URL(location.href), k = u.searchParams.get('admin');
+        if (k) { sessionStorage.setItem('plenty-of-fish.admin', k); u.searchParams.delete('admin'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+        return k || sessionStorage.getItem('plenty-of-fish.admin') || '';
+      } catch (e) { return ''; }
+    })();
+    let shared = [];            // notes from the store (or this device)
+    const pending = new Map();  // notes posted from this view, shown before the store confirms them
+    const freshIds = new Set();
+    let ready = Promise.resolve();
+    const grid = $('notesGrid'), statusEl = $('notesStatus'), form = $('noteForm'), text = $('noteText'),
+      by = $('noteBy'), count = $('noteCount'), stickBtn = $('stickBtn'), composer = $('composer');
+
+    const status = msg => { statusEl.textContent = msg; };
+    const rid = () => 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const tiltFor = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return ((Math.abs(h) % 70) / 10 - 3.5).toFixed(1) + 'deg'; };
+
+    // shared data is untrusted: keep only well-formed fields
+    function clean(id, it) {
+      if (!it || typeof it !== 'object' || typeof it.text !== 'string' || !it.text.trim()) return null;
+      return {
+        id: String(id).slice(0, 60),
+        text: it.text.slice(0, MAX),
+        by: typeof it.by === 'string' ? it.by.slice(0, 40) : '',
+        color: COLORS.includes(it.color) ? it.color : 'cream',
+        at: typeof it.at === 'number' ? it.at : 0,
+        author: typeof it.author === 'string' ? it.author : ''
+      };
+    }
+
+    function loadLocal() {
+      try { const a = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); return Array.isArray(a) ? a.map(x => clean(x && x.id, x)).filter(Boolean) : []; }
+      catch (e) { return []; }
+    }
+    function saveLocal(list) { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+
+    function useLocal(msg) {
+      mode = 'local'; uid = 'this-device'; readOnly = false;
+      shared = loadLocal().map(n => ({ ...n, author: uid }));
+      status(msg || '');
+      render(); syncForm();
+    }
+
+    function start() {
+      if (started) return ready;
+      started = true;
+      syncForm();
+      ready = connect();
+      return ready;
+    }
+
+    async function tryApi() {
+      if (!/^https?:$/.test(location.protocol)) return false;
+      try {
+        const r = await fetch(API, { cache: 'no-store', headers: { accept: 'application/json' } });
+        if (!r.ok) return false;
+        const j = await r.json();
+        if (!j || !Array.isArray(j.notes)) return false;
+        mode = 'api'; uid = 'this-device'; readOnly = false; owner = Boolean(adminKey);
+        applyApi(j.notes);
+        status(''); syncForm();
+        setInterval(refreshApi, 20000);
+        return true;
+      } catch (e) { return false; }
+    }
+    function applyApi(list) {
+      shared = list.map(n => { const c = clean(n && n.id, n); if (c) c.author = myTokens[c.id] ? uid : ''; return c; }).filter(Boolean);
+      for (const n of shared) pending.delete(n.id);
+      render();
+    }
+    async function refreshApi() {
+      if (aboutEl.hidden || busy) return;
+      try {
+        const r = await fetch(API, { cache: 'no-store' });
+        if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.notes)) applyApi(j.notes); }
+      } catch (e) { /* try again next round */ }
+    }
+
+    async function connect() {
+      const c = window.claude;
+      if (!c || typeof c.use !== 'function') { if (!(await tryApi())) useLocal(); return; }
+      let d = null, u = null;
+      try { [d, u] = await Promise.all([c.use('db'), c.use('user')]); } catch (e) { d = null; }
+      if (!d) { useLocal(); return; }
+      db = d; mode = 'live';
+      let canWrite = null;
+      try { uid = u ? await u.id() : null; } catch (e) { uid = null; }
+      try { canWrite = u ? await u.can('data.write') : null; } catch (e) { canWrite = null; }
+      try { owner = u ? await u.isOwner() : false; } catch (e) { owner = false; }
+      if (!uid) uid = 'guest-' + rid();   // still lets them post; they just can't remove it later
+      readOnly = canWrite === false;
+      status(readOnly ? 'You can read everyone’s notes. Posting needs Contributor access to this page.' : '');
+      syncForm();
+      db.collection('notes').orderBy('at', 'desc').limit(300).onSnapshot(snap => {
+        shared = snap.docs.map(d => clean(d.id, d.data())).filter(Boolean);
+        for (const n of shared) pending.delete(n.id);
+        render();
+      }, e => status(`The board stopped updating (${(e && e.code) || 'error'}). Reload the page to see new notes.`));
+    }
+
+    function render() {
+      for (const li of [...grid.children]) if (li !== composer) li.remove();
+      const seen = new Set(shared.map(n => n.id));
+      const list = [...shared, ...[...pending.values()].filter(n => !seen.has(n.id))].sort((a, b) => b.at - a.at);
+      if (!list.length) {
+        const li = document.createElement('li');
+        li.className = 'note placeholder';
+        const p = document.createElement('p'); p.className = 'note-text';
+        p.textContent = mode === 'loading' ? 'Fetching the notes…' : 'No notes yet. The first one gets bragging rights.';
+        li.appendChild(p); grid.appendChild(li);
+        return;
+      }
+      for (const n of list) {
+        const li = document.createElement('li');
+        li.className = 'note' + (freshIds.has(n.id) ? ' is-new' : '');
+        li.dataset.color = n.color;
+        li.style.setProperty('--tilt', tiltFor(n.id));
+        const p = document.createElement('p'); p.className = 'note-text'; p.textContent = n.text;
+        const s = document.createElement('p'); s.className = 'note-by'; s.textContent = '— ' + (n.by.trim() || 'A fellow fish');
+        li.append(p, s);
+        const isMine = n.author && n.author === uid;
+        if (isMine || ((mode === 'live' || mode === 'api') && owner)) {
+          const x = document.createElement('button');
+          x.type = 'button'; x.className = 'note-x'; x.textContent = '×';
+          x.setAttribute('aria-label', isMine ? 'Remove your note' : 'Remove this note');
+          x.addEventListener('click', () => remove(n));
+          li.appendChild(x);
+        }
+        grid.appendChild(li);
+      }
+      freshIds.clear();
+    }
+
+    function syncForm() {
+      count.textContent = `${text.value.length} / ${MAX}`;
+      count.classList.toggle('over', text.value.length > MAX);
+      for (const el of [text, by]) el.disabled = readOnly;
+      stickBtn.disabled = readOnly || busy || !text.value.trim() || text.value.length > MAX;
+      stickBtn.textContent = busy ? 'STICKING…' : 'STICK IT ON THE BOARD';
+    }
+
+    async function save(note) {
+      if (mode === 'api') {
+        const token = rid() + rid();
+        try {
+          const r = await fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ text: note.text, by: note.by, color: note.color, token }) });
+          if (r.status === 429) { status('Easy there. Give it a few minutes before your next note.'); return false; }
+          if (!r.ok) { status(`That note didn\u2019t stick (${r.status}). Try again in a moment.`); return false; }
+          const j = await r.json();
+          pending.delete(note.id);
+          const saved = j && j.note && clean(j.note.id, j.note);
+          if (saved) {
+            myTokens[saved.id] = token; saveTokens();
+            saved.author = uid;
+            freshIds.add(saved.id);
+            shared = [saved, ...shared.filter(m => m.id !== saved.id)];
+            render();
+          }
+          return true;
+        } catch (e) { status('That note didn\u2019t stick. Check your connection and try again.'); return false; }
+      }
+      if (mode === 'local') {
+        shared = [note, ...shared];
+        const ok = saveLocal(shared);
+        render();
+        if (!ok) status('This browser won’t save notes, so this one disappears when you leave.');
+        return true;
+      }
+      const { id, ...body } = note;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try { await db.collection('notes').doc(id).set(body); return true; }
+        catch (e) {
+          const code = (e && e.code) || 'error';
+          if (code === 'unavailable' && attempt === 0) { await new Promise(r => setTimeout(r, 400 + Math.random() * 600)); continue; }
+          if (code === 'invalid_argument') { readOnly = true; status('Posting isn’t open to your account on this page, but you can still read the board.'); }
+          else if (code === 'quota_exceeded') status('The board is full right now. Try again later.');
+          else if (code === 'not_granted' || code === 'revoked') status('This view didn’t allow saving notes. Reload the page and allow it when asked.');
+          else status(`That note didn’t stick (${code}). Try again in a moment.`);
+          return false;
+        }
+      }
+      return false;
+    }
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (busy) return;
+      const body = text.value.trim();
+      if (!body || body.length > MAX || readOnly) return;
+      busy = true; syncForm();
+      await start();
+      if (readOnly) { busy = false; syncForm(); return; }
+      const color = (form.querySelector('input[name="noteColor"]:checked') || {}).value || 'cream';
+      const note = { id: rid(), text: body, by: by.value.trim().slice(0, 40), color, at: Date.now(), author: uid };
+      freshIds.add(note.id);
+      if (mode === 'live' || mode === 'api') { pending.set(note.id, note); render(); }
+      const ok = await save(note);
+      busy = false;
+      if (ok) {
+        text.value = '';
+        Sound.click();
+        status('Stuck! Thanks for the note.');
+      } else {
+        pending.delete(note.id); render();
+      }
+      syncForm();
+    });
+
+    async function remove(n) {
+      if (busy) return;
+      busy = true; syncForm();
+      if (mode === 'api') {
+        try {
+          const headers = { 'content-type': 'application/json' };
+          if (adminKey) headers['x-admin-key'] = adminKey;
+          const r = await fetch(API, { method: 'DELETE', headers, body: JSON.stringify({ id: n.id, token: myTokens[n.id] || '' }) });
+          if (r.ok || r.status === 404) {
+            delete myTokens[n.id]; saveTokens();
+            shared = shared.filter(m => m.id !== n.id); render();
+            status('Note removed.');
+          } else status(`That note wouldn\u2019t come unstuck (${r.status}). Try again.`);
+        } catch (e) { status('That note wouldn\u2019t come unstuck. Check your connection and try again.'); }
+        busy = false; syncForm();
+        return;
+      }
+      if (mode === 'local') {
+        shared = shared.filter(m => m.id !== n.id);
+        saveLocal(shared); render();
+      } else {
+        try { await db.collection('notes').doc(n.id).delete(); status('Note removed.'); }
+        catch (e) { status(`That note wouldn’t come unstuck (${(e && e.code) || 'error'}). Try again.`); }
+      }
+      busy = false; syncForm();
+    }
+
+    text.addEventListener('input', syncForm);
+    render();
+    return { start };
+  })();
+
+  /* ================= Effects ================= */
+  const fx = [];
+  function mk(tag, attrs, parent) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); parent.appendChild(el); return el; }
+  function addFx(o) { fx.push(o); if (fx.length > 48) { const old = fx.shift(); old.el.remove(); } }
+  function ripple(x, y, big = 1) {
+    if (reduced) return;
+    addFx({ kind: 'ripple', el: mk('ellipse', { fill: 'none', stroke: '#F4ECDF', 'stroke-width': 2 }, fxBack), x, y, big, age: 0, life: .55 });
+  }
+  function splash(x, y) {
+    Sound.splash();
+    if (reduced) return;
+    ripple(x, y + 2, 1.4);
+    for (let i = 0; i < 7; i++) {
+      addFx({ kind: 'drop', el: mk('circle', { r: (2 + Math.random() * 2.6) * sc.S, fill: '#F4ECDF' }, fxFront), x, y,
+        vx: rand(-1, 1) * 120 * sc.S, vy: -rand(140, 320) * sc.S, age: 0, life: .8 });
+    }
+  }
+  function bubble(x, y) {
+    if (reduced) return;
+    addFx({ kind: 'bubble', el: mk('circle', { r: (1.8 + Math.random() * 2.6) * sc.S, fill: 'none', stroke: '#C8CAFB', 'stroke-width': 1.5 }, fxBack),
+      x, y, vy: -rand(36, 70) * sc.S, phase: Math.random() * 6, age: 0, life: 6 });
+  }
+  function stepFx(dt, g) {
+    for (let i = fx.length - 1; i >= 0; i--) {
+      const f = fx[i]; f.age += dt;
+      let dead = f.age >= f.life;
+      if (f.kind === 'ripple') {
+        const p = f.age / f.life, rx = (10 + 44 * p) * sc.S * f.big;
+        f.el.setAttribute('cx', f.x); f.el.setAttribute('cy', f.y); f.el.setAttribute('rx', rx); f.el.setAttribute('ry', rx * .2); f.el.setAttribute('opacity', 1 - p);
+      } else if (f.kind === 'drop') {
+        f.vy += 900 * sc.S * dt; f.x += f.vx * dt; f.y += f.vy * dt;
+        if (f.vy > 0 && f.y > g.surface + 4) dead = true;
+        f.el.setAttribute('cx', f.x); f.el.setAttribute('cy', f.y);
+      } else if (f.kind === 'bubble') {
+        f.y += f.vy * dt; f.x += Math.sin(f.age * 3 + f.phase) * .35;
+        if (f.y < g.surface + 6) dead = true;
+        f.el.setAttribute('cx', f.x); f.el.setAttribute('cy', f.y); f.el.setAttribute('opacity', Math.min(1, (f.life - f.age)));
+      }
+      if (dead) { f.el.remove(); fx.splice(i, 1); }
+    }
+  }
+
+  /* ================= Render loop ================= */
+  function fishMouth(g) { return { x: g.hookX - 7 * sc.S, y: g.hookY + 32 * sc.S }; }
+
+  let wasHookBelow = false, wasFishBelow = false, nextBubble = 0, nextAmbient = 0, nextWake = 0, lastNow = performance.now();
+  function frame(now) {
+    const dt = Math.min(.05, (now - lastNow) / 1000); lastNow = now;
+    sc.t += dt;
+    stepTweens(now);
+    stepControls(dt);
+    const g = geo(), S = sc.S;
+    // a little wake behind the boat while it sails
+    if (Math.abs(sc.vx) > 60 * S && sc.t > nextWake) {
+      ripple(g.boatX - Math.sign(sc.vx) * 72 * S, g.surface + 3, .55);
+      nextWake = sc.t + .14;
+    }
+
+    ocean.style.transform = `translate3d(0, ${g.surface.toFixed(2)}px, 0)`;
+    boatG.setAttribute('transform', `translate(${g.boatX.toFixed(2)} ${g.boatY.toFixed(2)}) rotate(${g.rockDeg.toFixed(2)}) scale(${S.toFixed(3)})`);
+    Ex.render(g);
+
+    const rigOn = sc.rodExt > .02;
+    for (const el of [rodEl, reelEl, lineEl, hookG]) el.style.display = rigOn ? '' : 'none';
+    if (rigOn) {
+      rodEl.setAttribute('x1', g.baseX); rodEl.setAttribute('y1', g.baseY); rodEl.setAttribute('x2', g.tipX); rodEl.setAttribute('y2', g.tipY);
+      rodEl.setAttribute('stroke-width', Math.max(2.4, 3.6 * S));
+      const rx = lerp(g.baseX, g.tipX, .16), ry = lerp(g.baseY, g.tipY, .16);
+      reelEl.setAttribute('cx', rx); reelEl.setAttribute('cy', ry); reelEl.setAttribute('r', 4.4 * S * Math.min(1, sc.rodExt));
+      const mx = (g.tipX + g.hookX) / 2 - g.sway * .8, my = (g.tipY + g.hookY) / 2;
+      lineEl.setAttribute('d', `M${g.tipX.toFixed(2)} ${g.tipY.toFixed(2)} Q${mx.toFixed(2)} ${my.toFixed(2)} ${g.hookX.toFixed(2)} ${g.hookY.toFixed(2)}`);
+      lineEl.setAttribute('stroke-width', Math.max(1.6, 2.4 * S));
+      hookG.setAttribute('transform', `translate(${g.hookX.toFixed(2)} ${g.hookY.toFixed(2)}) scale(${S.toFixed(3)})`);
+      const below = g.hookY > g.surface;
+      if (below !== wasHookBelow && sc.sea > .9 && !sc.fish) splash(g.hookX, g.surface);
+      wasHookBelow = below;
+    }
+
+    if (sc.fish) {
+      const p = sc.fish, face = sc.fishFace, k = sc.fishScale * S * .55;
+      let x, y, rot;
+      if (sc.fishMode === 'hook') {
+        const m = fishMouth(g); x = m.x; y = m.y;
+        rot = face * p.hang * sc.hangT + (reduced ? 0 : Math.sin(sc.t * 11) * 11 * sc.wiggle);
+      } else { x = sc.fx; y = sc.fy; rot = sc.frot; }
+      fishG.style.display = '';
+      fishG.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${rot.toFixed(2)}) scale(${(k * face).toFixed(3)} ${k.toFixed(3)}) translate(${-p.anchor[0]} ${-p.anchor[1]})`);
+      const fishBelow = (sc.fishMode === 'hook' ? g.hookY : y) > g.surface;
+      if (fishBelow !== wasFishBelow) splash(sc.fishMode === 'hook' ? g.hookX : x, g.surface);
+      wasFishBelow = fishBelow;
+    } else {
+      fishG.style.display = 'none';
+      wasFishBelow = true;
+    }
+
+    stepSuitors(dt, g);
+    stepSchool(dt, g);
+
+    if (state === 'waiting' && sc.t > nextBubble) {
+      bubble(g.hookX + rand(-6, 6) * S, g.hookY + 26 * S);
+      if (Math.random() < .45) Sound.bubble();
+      nextBubble = sc.t + rand(.5, 1.1);
+    }
+    if (stage.dataset.view === 'game' && !stage.dataset.ex && sc.sea > .95 && sc.t > nextAmbient) { bubble(rand(.05, .95) * sc.W, sc.H + 10); nextAmbient = sc.t + rand(1.4, 2.6); }
+    stepFx(dt, g);
+
+    requestAnimationFrame(frame);
+  }
+
+  /* ================= Wiring ================= */
+  cta.addEventListener('click', enterPool);
+  $('landingLog').addEventListener('click', e => { e.stopPropagation(); Sound.ensure(); openLog(null, e.currentTarget); });
+  $('landingAbout').addEventListener('click', e => { e.stopPropagation(); Sound.ensure(); openAbout(e.currentTarget); });
+  $('aboutBack').addEventListener('click', closeAbout);
+  const soundBtn = $('soundBtn');
+  function syncSoundBtn() {
+    soundBtn.setAttribute('aria-pressed', String(!Sound.muted));
+    soundBtn.title = Sound.muted ? 'Sound off' : 'Sound on';
+  }
+  soundBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    Sound.setMuted(!Sound.muted);
+    if (!Sound.muted) { if (stage.dataset.view === 'game') Sound.startAmbient(); Sound.click(); }
+    syncSoundBtn();
+  });
+  syncSoundBtn();
+  $('backBtn').addEventListener('click', goLanding);
+  reelBtn.addEventListener('click', e => { e.stopPropagation(); primaryAction(); });
+  throwBtn.addEventListener('click', e => { e.stopPropagation(); throwBack(); });
+  // click/tap the water: steer the hook there (and drop the bait if it isn't live yet); during a bite it reels
+  ocean.addEventListener('click', e => {
+    if (!logEl.hidden) return;
+    if (state === 'bite') { reel(); return; }
+    if (state === 'ready' || state === 'waiting') {
+      aimAt(e.clientX, e.clientY);
+      if (state === 'ready') startFishing();
+    }
+  });
+  $('againBtn').addEventListener('click', backToFishing);
+  $('exAgain').addEventListener('click', e => { e.stopPropagation(); Ex.recover(); });
+  $('exLog').addEventListener('click', e => { e.stopPropagation(); });   // 404: goes nowhere, on purpose
+  $('viewLogBtn').addEventListener('click', e => {
+    const id = current && current.persona.id;
+    openLog(id, e.currentTarget, () => backToFishing());
+  });
+  $('latestName').addEventListener('click', e => { if (log.latest) openLog(log.latest, e.currentTarget); });
+  $('logBack').addEventListener('click', closeLog);
+
+  document.addEventListener('keyup', e => { const k = KEYMAP[e.key]; if (k) keys[k] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  document.addEventListener('keydown', e => {
+    const dirKey = KEYMAP[e.key];
+    if (dirKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (stage.dataset.view === 'game' && logEl.hidden) {
+        keys[dirKey] = true;
+        if (e.key.startsWith('Arrow')) e.preventDefault();
+        if (state === 'ready' && !e.repeat) Sound.ensure();
+      }
+      return;
+    }
+    if ((e.key === 'x' || e.key === 'X' || e.key === 'Backspace') && state === 'bite' && logEl.hidden) { e.preventDefault(); throwBack(); return; }
+    if (e.key === 'Escape') {
+      if (!aboutEl.hidden) { e.preventDefault(); closeAbout(); }
+      else if (!logEl.hidden) { e.preventDefault(); closeLog(); }
+      else if (state === 'inspecting') { e.preventDefault(); backToFishing(); }
+      return;
+    }
+    if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
+      const t = e.target;
+      if (t && t.closest && t.closest('button, a, input, textarea, select')) return;
+      if (state === 'ready' || state === 'bite' || state === 'waiting') { e.preventDefault(); primaryAction(); }
+    }
+  });
+
+  if (window.ResizeObserver) new ResizeObserver(measure).observe(stage);
+  else window.addEventListener('resize', measure);
+
+  stage.tabIndex = -1;
+  stage.style.outline = 'none';
+  buildSchool();
+  measure();
+  buildMotes();
+  renderHud(false);
+  renderLog();
+  requestAnimationFrame(t => { lastNow = t; frame(t); });
+})();
+</script>
+
+</body>
+</html>
